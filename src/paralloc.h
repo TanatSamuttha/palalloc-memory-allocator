@@ -18,25 +18,14 @@ namespace paralloc{
 
         hashed by count trail zero and decrease by 1
     */
-    extern uint16_t begin[4];
-    extern uint16_t end[4];
+    extern uint16_t begin[4] = {0, 2048, 3072, 3584};
+    extern uint16_t end[4] = {2047, 3071, 3583, 4095};
+    extern uint16_t chunkleft[4] = {2048, 1024, 512, 512};
 
     inline void connect(uint8_t size);
 
     inline void init(){
         buffer = std::malloc(4096);
-
-        begin[0] = 0;
-        end[0] = 2047;
-        
-        begin[1] = 2048;
-        end[1] = 3071;
-
-        begin[2] = 3072;
-        end[2] = 3583;
-
-        begin[3] = 3584;
-        end[3] = 4095;
 
         connect(2);
         connect(4);
@@ -56,8 +45,11 @@ namespace paralloc{
     
     template<typename T>
     inline T* paralloc(){
-        int size = sizeof(T);
-        int sizeIdx = __builtin_ctz(size) - 1;
+        constexpr int size = sizeof(T);
+        constexpr int sizeIdx = __builtin_ctz(size) - 1;
+        if(!chunkleft[sizeIdx]){
+            return static_cast<T*>(std::malloc(size));
+        }
         void* ptr = static_cast<uint8_t*>(buffer) + begin[sizeIdx];
         begin[sizeIdx] = map[begin[sizeIdx]];
         return static_cast<T*>(ptr);
