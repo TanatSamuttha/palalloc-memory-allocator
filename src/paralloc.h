@@ -65,12 +65,11 @@ namespace paralloc{
 
     template<typename T>
     inline T* malloc(){
-        int size = sizeof(T);
-        int idx = __builtin_ctz(size) - 1;
-        if(idx > 3){
-            return static_cast<T*>(std::malloc(size));
+        constexpr int size = sizeof(T);
+        if constexpr (size == 2 || size == 4 || size == 8 || size == 16){
+            return paralloc<T>();
         }
-        return paralloc<T>();
+        return static_cast<T*>(std::malloc(size));
     }
 }
 
