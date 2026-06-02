@@ -1,7 +1,7 @@
 #include <cstdlib>
 #include <cstdint>
 
-namespace palloc{
+namespace paralloc{
 
     void* buffer;
 
@@ -34,4 +34,6 @@ namespace palloc{
             idx += size;
         }
     }
+
+
 }
