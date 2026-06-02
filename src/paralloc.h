@@ -1,6 +1,7 @@
 #ifndef PARALLOC_H
 #define PARALLOC_H
 
+#include <cstdlib>
 #include <cstdint>
 
 namespace paralloc{
@@ -10,6 +11,8 @@ namespace paralloc{
 
     void init();
     void connect(int8_t size);
+    void paralloc(uint8_t size);
+    void* malloc(size_t size);
 }
 
 #endif

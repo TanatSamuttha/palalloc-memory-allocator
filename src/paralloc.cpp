@@ -49,21 +49,22 @@ namespace paralloc{
         }
     }
     
-    void* paralloc(uint8_t size){
+    template<typename T>
+    T* paralloc(){
+        int size = sizeof(T);
         int sizeIdx = __builtin_ctz(size) - 1;
-        void* ptr = buffer + begin[sizeIdx];
+        void* ptr = static_cast<uint8_t*>(buffer) + begin[sizeIdx];
         begin[sizeIdx] = map[begin[sizeIdx]];
-
-        return ptr;
+        return static_cast<T*>(ptr);
     }
 
-    inline void* malloc(size_t size){
+    template<typename T>
+    inline T* malloc(){
+        int size = sizeof(T);
         int idx = __builtin_ctz(size) - 1;
         if(idx > 3){
-            return std::malloc(size);
+            return static_cast<T*>(std::malloc(size));
         }
-        else{
-            return paralloc(size);
-        }
+        return paralloc<T>();
     }
 }
