@@ -12,6 +12,8 @@ namespace paralloc{
         size 4 bytes is located a index 1
         size 8 bytes is located a index 2
         size 16 bytes is located a index 3
+
+        hashed by count trail zero and decrease by 1
     */
     uint16_t begin[4];
     uint16_t end[4];
@@ -46,6 +48,14 @@ namespace paralloc{
             idx += size;
         }
     }
+    
+    void* paralloc(uint8_t size){
+        int sizeIdx = __builtin_ctz(size) - 1;
+        void* ptr = buffer + begin[sizeIdx];
+        begin[sizeIdx] = map[begin[sizeIdx]];
+
+        return ptr;
+    }
 
     inline void* malloc(size_t size){
         int idx = __builtin_ctz(size) - 1;
@@ -53,7 +63,7 @@ namespace paralloc{
             return std::malloc(size);
         }
         else{
-            return paralloc(uint8_t size);
+            return paralloc(size);
         }
     }
 }
