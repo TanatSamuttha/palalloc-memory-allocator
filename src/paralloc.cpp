@@ -49,5 +49,11 @@ namespace paralloc{
 
     inline void* malloc(size_t size){
         int idx = __builtin_ctz(size) - 1;
+        if(idx > 3){
+            return std::malloc(size);
+        }
+        else{
+            return paralloc(uint8_t size);
+        }
     }
 }
