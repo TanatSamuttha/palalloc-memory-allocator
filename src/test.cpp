@@ -33,5 +33,14 @@ int main(){
     long long int* ptr3 = paralloc::paralloc<long long int>();
     std::cout << ptr3 << " = " << *ptr3 << '\n';
 
+    std::cout << "Test strange size\n";
+    paralloc::free<long long int>(ptr3);
+
+    int32_t* ptr4 = paralloc::paralloc<int32_t>();
+    std::cout << ptr4 << " = " << *ptr4 << '\n';
+
+    *ptr4 = 21;
+    std::cout << ptr4 << " = " << *ptr4 << '\n';
+
     return 0;
 }

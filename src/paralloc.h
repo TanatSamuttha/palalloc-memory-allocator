@@ -23,27 +23,27 @@ namespace paralloc{
 
     extern const uint16_t INVALID; // Value assigned in .cpp file 0xFFFF
 
-    inline constexpr int sizeClass(size_t size){
-        if(size <= 8) return 0;
-        if(size <= 16) return 1;
-        if(size <= 32) return 2;
-        if(size <= 64) return 3;
+    inline constexpr int findSize(size_t size){
+        if(size <= 8) return 8;
+        if(size <= 16) return 16;
+        if(size <= 32) return 32;
+        if(size <= 64) return 64;
 
         return -1;
     }
 
     inline void connect(uint8_t size, uint16_t chunkSize){
-        int sizeIdx = sizeClass(size);
-
+        int sizeIdx = __builtin_ctz(size) - 3;
+        
         uint16_t headPad = head[sizeIdx];
         uint8_t* headPtr = buffer + headPad;
         uint8_t* ptr = buffer + headPad;
-
+        
         while(ptr + size < headPtr + chunkSize){
             *reinterpret_cast<uint8_t**>(ptr) = ptr + size;
             ptr += size;
         }
-
+        
         *reinterpret_cast<uint8_t**>(ptr) = nullptr;
     }
 
@@ -57,7 +57,7 @@ namespace paralloc{
     }
 
     inline uint16_t combine(uint8_t size){
-        int sizeIdx = sizeClass(size);
+        int sizeIdx = __builtin_ctz(size) - 3;
         uint8_t size2 = size + size;
         if(virgin[sizeIdx] <= tail[sizeIdx] - size2 + 1){
             tail[sizeIdx] -= size2;
@@ -79,11 +79,11 @@ namespace paralloc{
     
     template<typename T>
     inline T* paralloc(){
-        constexpr int size = sizeof(T);
-        constexpr int sizeIdx = sizeClass(size);
+        constexpr int size = findSize(sizeof(T));
+        constexpr int sizeIdx = __builtin_ctz(size) - 3;
 
         if(head[sizeIdx] == INVALID){
-            int16_t combineIdx = combine(sizeof(T) >> 1);
+            int16_t combineIdx = combine(size >> 1);
             if(combineIdx == INVALID) return static_cast<T*>(std::malloc(size));
             else return reinterpret_cast<T*>(buffer + combineIdx);
         }
@@ -99,17 +99,17 @@ namespace paralloc{
 
     template<typename T>
     inline T* malloc(){
-        constexpr int size = sizeof(T);
-        if(size == 8 || size == 16 || size == 32 || size == 64){
+        constexpr int size = findSize(sizeof(T));
+        if(size <= 64){
             return paralloc<T>();
         }
-        return static_cast<T*>(std::malloc(size));
+        return static_cast<T*>(std::malloc(sizeof(T)));
     }
 
     template<typename T>
     inline void free(T* ptr){
-        constexpr int size = sizeof(T);
-        if (size != 8 && size != 16 && size != 32 && size != 64){
+        constexpr int size = findSize(sizeof(T));
+        if (size > 64){
             std::free(ptr);
             return;
         }        
@@ -121,7 +121,7 @@ namespace paralloc{
             return;
         }
 
-        constexpr int sizeIdx = sizeClass(size);
+        constexpr int sizeIdx = __builtin_ctz(size) - 3;
 
         uint8_t* headPtr = (head[sizeIdx] != INVALID)? buffer + head[sizeIdx] : nullptr;
 
