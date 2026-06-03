@@ -7,7 +7,7 @@
 
 namespace paralloc{
 
-    extern void* buffer;
+    extern uint8_t* buffer;
 
     extern uint16_t map[4096];
 
@@ -20,12 +20,13 @@ namespace paralloc{
         hashed by count trail zero and decrease by 1
     */
     extern uint16_t begin[4]; // Value assigned in .cpp file {0, 2048, 3072, 3584}
+    extern uint8_t* head[4];
     extern uint16_t bytesleft[4]; // Value assigned in .cpp file {2048, 1024, 512, 512}
 
     inline void connect(uint8_t size);
 
     inline void init(){
-        buffer = std::malloc(4096);
+        buffer = static_cast<uint8_t*>(std::malloc(4096));
 
         connect(8);
         connect(16);
@@ -35,62 +36,66 @@ namespace paralloc{
 
     inline void connect(uint8_t size){
         int sizeIdx = __builtin_ctz(size) - 3;
-        int beginIdx = begin[sizeIdx];
-        int idx = beginIdx;
-        int chunkSize = bytesleft[sizeIdx];
-        while(idx < beginIdx + chunkSize){
-            map[idx] = idx + size;
-            idx += size;
+
+        uint16_t beginPad = begin[sizeIdx];
+        uint8_t* headPtr = head[sizeIdx] = buffer + beginPad;
+        uint8_t* ptr = headPtr;
+        int16_t chunkSize = bytesleft[sizeIdx];
+
+        while(ptr < headPtr + chunkSize){
+            *reinterpret_cast<uint8_t**>(ptr) = ptr + size;
+            ptr += size;
         }
+        *reinterpret_cast<uint8_t**>(ptr) = nullptr;
     }
     
-    template<typename T>
-    inline T* paralloc(){
-        constexpr int size = sizeof(T);
-        constexpr int sizeIdx = __builtin_ctz(size) - 3;
-        if(size > bytesleft[sizeIdx]){
-            return static_cast<T*>(std::malloc(size));
-        }
-        void* ptr = static_cast<uint8_t*>(buffer) + begin[sizeIdx];
-        begin[sizeIdx] = map[begin[sizeIdx]];
-        bytesleft[sizeIdx] -= size;
-        return static_cast<T*>(ptr);
-    }
+    // template<typename T>
+    // inline T* paralloc(){
+    //     constexpr int size = sizeof(T);
+    //     constexpr int sizeIdx = __builtin_ctz(size) - 3;
+    //     if(size > bytesleft[sizeIdx]){
+    //         return static_cast<T*>(std::malloc(size));
+    //     }
+    //     void* ptr = static_cast<uint8_t*>(buffer) + head[sizeIdx];
+    //     head[sizeIdx] = map[head[sizeIdx]];
+    //     bytesleft[sizeIdx] -= size;
+    //     return static_cast<T*>(ptr);
+    // }
 
-    template<typename T>
-    inline T* malloc(){
-        constexpr int size = sizeof(T);
-        if (size == 2 || size == 4 || size == 8 || size == 16){
-            return paralloc<T>();
-        }
-        return static_cast<T*>(std::malloc(size));
-    }
+    // template<typename T>
+    // inline T* malloc(){
+    //     constexpr int size = sizeof(T);
+    //     if (size == 2 || size == 4 || size == 8 || size == 16){
+    //         return paralloc<T>();
+    //     }
+    //     return static_cast<T*>(std::malloc(size));
+    // }
 
-    template<typename T>
-    inline void free(T* ptr){
-        constexpr int size = sizeof(T);
-        if (size != 2 && size != 4 && size != 8 && size != 16){
-            std::free(ptr);
-            return;
-        }        
+    // template<typename T>
+    // inline void free(T* ptr){
+    //     constexpr int size = sizeof(T);
+    //     if (size != 2 && size != 4 && size != 8 && size != 16){
+    //         std::free(ptr);
+    //         return;
+    //     }        
         
-        uint8_t* ptrByte = reinterpret_cast<uint8_t*>(ptr);
-        uint8_t* bufferByte = reinterpret_cast<uint8_t*>(buffer);
+    //     uint8_t* ptrByte = reinterpret_cast<uint8_t*>(ptr);
+    //     uint8_t* bufferByte = reinterpret_cast<uint8_t*>(buffer);
 
-        if(ptrByte < bufferByte || ptrByte >= bufferByte + 4096){
-            std::free(ptr);
-            return;
-        }
+    //     if(ptrByte < bufferByte || ptrByte >= bufferByte + 4096){
+    //         std::free(ptr);
+    //         return;
+    //     }
 
-        constexpr int sizeIdx = __builtin_ctz(size) - 3;
-        int beginIdx = begin[sizeIdx];
-        int ptrIdx = ptrByte - bufferByte;
+    //     constexpr int sizeIdx = __builtin_ctz(size) - 3;
+    //     int headIdx = head[sizeIdx];
+    //     int ptrIdx = ptrByte - bufferByte;
 
-        map[ptrIdx] = beginIdx;
-        begin[sizeIdx] = ptrIdx;
+    //     map[ptrIdx] = headIdx;
+    //     head[sizeIdx] = ptrIdx;
 
-        bytesleft[sizeIdx] += size;
-    }
+    //     bytesleft[sizeIdx] += size;
+    // }
 }
 
 #endif
