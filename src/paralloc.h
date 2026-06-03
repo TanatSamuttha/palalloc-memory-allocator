@@ -37,12 +37,13 @@ namespace paralloc{
         uint16_t headPad = head[sizeIdx];
         uint8_t* headPtr = buffer + headPad;
         uint8_t* ptr = buffer + headPad;
-        int16_t chunkSize = bytesleft[sizeIdx];
+        uint16_t chunkSize = bytesleft[sizeIdx];
 
-        while(ptr < headPtr + chunkSize){
+        while(ptr + size < headPtr + chunkSize){
             *reinterpret_cast<uint8_t**>(ptr) = ptr + size;
             ptr += size;
         }
+
         *reinterpret_cast<uint8_t**>(ptr) = nullptr;
     }
     
@@ -70,31 +71,29 @@ namespace paralloc{
         return static_cast<T*>(std::malloc(size));
     }
 
-    // template<typename T>
-    // inline void free(T* ptr){
-    //     constexpr int size = sizeof(T);
-    //     if (size != 2 && size != 4 && size != 8 && size != 16){
-    //         std::free(ptr);
-    //         return;
-    //     }        
+    template<typename T>
+    inline void free(T* ptr){
+        constexpr int size = sizeof(T);
+        if (size != 8 && size != 16 && size != 32 && size != 64){
+            std::free(ptr);
+            return;
+        }        
         
-    //     uint8_t* ptrByte = reinterpret_cast<uint8_t*>(ptr);
-    //     uint8_t* bufferByte = reinterpret_cast<uint8_t*>(buffer);
+        uint8_t* ptrByte = reinterpret_cast<uint8_t*>(ptr);
 
-    //     if(ptrByte < bufferByte || ptrByte >= bufferByte + 4096){
-    //         std::free(ptr);
-    //         return;
-    //     }
+        if(ptrByte < buffer || ptrByte >= buffer + 4096){
+            std::free(ptr);
+            return;
+        }
 
-    //     constexpr int sizeIdx = __builtin_ctz(size) - 3;
-    //     int headIdx = head[sizeIdx];
-    //     int ptrIdx = ptrByte - bufferByte;
+        constexpr int sizeIdx = __builtin_ctz(size) - 3;
+        uint8_t* headPtr = buffer + head[sizeIdx];
 
-    //     map[ptrIdx] = headIdx;
-    //     head[sizeIdx] = ptrIdx;
+        *reinterpret_cast<uint8_t**>(ptrByte) = headPtr;
+        head[sizeIdx] = ptrByte - buffer;
 
-    //     bytesleft[sizeIdx] += size;
-    // }
+        bytesleft[sizeIdx] += size;
+    }
 }
 
 #endif

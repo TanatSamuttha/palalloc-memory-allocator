@@ -25,13 +25,13 @@ int main(){
     *ptr2 = 64;
     std::cout << ptr2 << " = " << *ptr2 << '\n';
 
-    // std::cout << "Test free memmory\n";
+    std::cout << "Test free memmory\n";
 
-    // paralloc::free<long long int>(ptr);
-    // std::cout << ptr << " = "  << *ptr << '\n';
+    paralloc::free<long long int>(ptr);
+    std::cout << ptr << " = "  << *ptr << '\n';
 
-    // long long int* ptr2 = paralloc::paralloc<long long int>();
-    // std::cout << ptr << " = " << *ptr << '\n';
+    long long int* ptr3 = paralloc::paralloc<long long int>();
+    std::cout << ptr3 << " = " << *ptr3 << '\n';
 
     return 0;
 }
