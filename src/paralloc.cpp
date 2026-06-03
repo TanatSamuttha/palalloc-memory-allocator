@@ -15,6 +15,7 @@ namespace paralloc{
     */
     uint16_t head[4] = {0, 2048, 3072, 3584};
     uint16_t virgin[4] = {0, 2048, 3072, 3584};
+    uint16_t tail[4] = {2047, 3071, 3583, 4095};
 
     const uint16_t INVALID = 0xFFFF;
 }
