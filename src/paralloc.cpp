@@ -15,4 +15,6 @@ namespace paralloc{
     */
     uint16_t head[4] = {0, 2048, 3072, 3584};
     uint16_t bytesleft[4] = {2048, 1024, 512, 512};
+
+    uint16_t INVALID = 0xFFFF;
 }

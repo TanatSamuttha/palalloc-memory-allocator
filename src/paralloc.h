@@ -20,6 +20,8 @@ namespace paralloc{
     extern uint16_t head[4]; // Value assigned in .cpp file {0, 2048, 3072, 3584}
     extern uint16_t bytesleft[4]; // Value assigned in .cpp file {2048, 1024, 512, 512}
 
+    extern uint16_t INVALID; // Value assigned in .cpp file 0xFFFF
+
     inline void connect(uint8_t size);
 
     inline void init(){
@@ -57,7 +59,11 @@ namespace paralloc{
         }
 
         void* ptr = buffer + head[sizeIdx];
-        head[sizeIdx] = *reinterpret_cast<uint8_t**>(ptr) - buffer;
+
+        uint8_t* next = *reinterpret_cast<uint8_t**>(ptr);
+        if(next == nullptr) head[sizeIdx] = INVALID;
+        else head[sizeIdx] = next - buffer;
+
         bytesleft[sizeIdx] -= size;
         return static_cast<T*>(ptr);
     }
@@ -87,7 +93,8 @@ namespace paralloc{
         }
 
         constexpr int sizeIdx = __builtin_ctz(size) - 3;
-        uint8_t* headPtr = buffer + head[sizeIdx];
+
+        uint8_t* headPtr = (head[sizeIdx] != INVALID)? buffer + head[sizeIdx] : nullptr;
 
         *reinterpret_cast<uint8_t**>(ptrByte) = headPtr;
         head[sizeIdx] = ptrByte - buffer;
