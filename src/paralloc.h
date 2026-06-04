@@ -35,7 +35,7 @@ private:
     }
 
     inline void connect(uint8_t size, uint16_t chunkSize){
-        int sizeIdx = __builtin_ctz(size) - 3;
+        int sizeIdx = ctz(size) - 3;
         
         uint16_t headPad = head[sizeIdx];
         uint8_t* headPtr = buffer + headPad;
@@ -50,7 +50,7 @@ private:
     }
 
     inline uint16_t combine(uint8_t size){
-        int sizeIdx = __builtin_ctz(size) - 3;
+        int sizeIdx = ctz(size) - 3;
         uint8_t size2 = size + size;
         if(virgin[sizeIdx] <= tail[sizeIdx] - size2 + 1){
             tail[sizeIdx] -= size2;
@@ -69,6 +69,20 @@ private:
             }
         }
     }
+    
+    #ifdef _MSC_VER
+    #include <intrin.h>
+
+    inline int ctz(unsigned int x){
+        unsigned long idx;
+        _BitScanForward(&idx, x);
+        return (int)idx;
+    }
+    #else
+    inline int ctz(unsigned int x){
+        return __builtin_ctz(x);
+    }
+    #endif
 
 public:
     ~Paralloc(){
@@ -87,7 +101,7 @@ public:
         }
 
         int size = findSize(sizeof(T));
-        int sizeIdx = __builtin_ctz(size) - 3;
+        int sizeIdx = ctz(size) - 3;
 
         if(head[sizeIdx] == INVALID){
             int16_t combineIdx = combine(size >> 1);
@@ -128,7 +142,7 @@ public:
             return;
         }
 
-        int sizeIdx = __builtin_ctz(size) - 3;
+        int sizeIdx = ctz(size) - 3;
 
         uint8_t* headPtr = (head[sizeIdx] != INVALID)? buffer + head[sizeIdx] : nullptr;
 
