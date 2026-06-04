@@ -1,10 +1,16 @@
 #include "paralloc.h"
 #include <iostream>
 
-int main(){
-    paralloc::init();
+struct HugeObject {
+    uint64_t a[16];  // 128 bytes
+    double b[8];     // 64 bytes
+    char c[32];      // 32 bytes
+};
 
-    long long int* ptr = paralloc::paralloc<long long int>();
+int main(){
+    Paralloc paralloc;
+
+    long long int* ptr = paralloc.alloc<long long int>();
 
     std::cout << "Test assign value to memmory\n";
     
@@ -18,29 +24,18 @@ int main(){
 
     std::cout << "Test unsupported size\n";
 
-    uint32_t* ptr2 = paralloc::malloc<uint32_t>();
+    HugeObject* ptr2 = paralloc.galloc<HugeObject>();
 
-    std::cout << ptr2 << " = " << *ptr2 << '\n';
+    std::cout << ptr2 << " = " << (*ptr2).a[0] << '\n';
 
-    *ptr2 = 64;
-    std::cout << ptr2 << " = " << *ptr2 << '\n';
+    (*ptr2).a[0] = 64;
+    std::cout << ptr2 << " = " << (*ptr2).a[0] << '\n';
 
     std::cout << "Test free memmory\n";
 
-    paralloc::free<long long int>(ptr);
+    paralloc.free<long long int>(ptr);
     std::cout << ptr << " = "  << *ptr << '\n';
 
-    long long int* ptr3 = paralloc::paralloc<long long int>();
+    long long int* ptr3 = paralloc.alloc<long long int>();
     std::cout << ptr3 << " = " << *ptr3 << '\n';
-
-    std::cout << "Test strange size\n";
-    paralloc::free<long long int>(ptr3);
-
-    int32_t* ptr4 = paralloc::paralloc<int32_t>();
-    std::cout << ptr4 << " = " << *ptr4 << '\n';
-
-    *ptr4 = 21;
-    std::cout << ptr4 << " = " << *ptr4 << '\n';
-
-    return 0;
 }
