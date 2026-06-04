@@ -89,6 +89,9 @@ public:
         std::free(buffer);
     }
 
+    Paralloc(const Paralloc&) = delete;
+    Paralloc& operator=(const Paralloc&) = delete;
+
     template<typename T>
     inline T* alloc(){
         if(firstTime){
