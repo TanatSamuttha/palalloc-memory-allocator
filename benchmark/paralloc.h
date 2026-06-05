@@ -6,7 +6,7 @@
 
 class Paralloc{
 private:
-    uint8_t* buffer;
+    uint8_t* buffer = nullptr;
 
     /*
         size 8 bytes is located at index 0
@@ -51,14 +51,18 @@ private:
 
     inline uint16_t combine(uint8_t size, uint8_t blocks){
         int sizeIdx = ctz(size) - 3;
+        
         uint16_t allSize = uint16_t(size) * blocks;
-        if(virgin[sizeIdx] <= tail[sizeIdx] - allSize + 1){
+        
+        if(tail[sizeIdx] >= allSize - 1 && virgin[sizeIdx] < tail[sizeIdx] - allSize + 1){
+            uint16_t allocIdx = tail[sizeIdx] - allSize + 1;
+            
             tail[sizeIdx] -= allSize;
 
-            uint8_t* ptr = buffer + (tail[sizeIdx] - size + 1);
+            uint8_t* ptr = buffer + (allocIdx - size);
             *(uint8_t**)ptr = nullptr;
 
-            return tail[sizeIdx] + 1;
+            return allocIdx;
         }
         else{
             if(size <= 8){
@@ -85,8 +89,7 @@ private:
     #endif
 
 public:
-    int parallocUsed = 0;
-    int mallocUsed = 0;
+    int parallocUsed = 0, mallocUsed = 0;
 
     Paralloc(){}
 
@@ -140,11 +143,13 @@ public:
         int sizeIdx = ctz(size) - 3;
 
         if(head[sizeIdx] == INVALID){
-            // int16_t combineIdx = combine(size >> 1, 2);
-            // if(combineIdx == INVALID) return static_cast<T*>(std::malloc(size));
-            // else return reinterpret_cast<T*>(buffer + combineIdx);
-            mallocUsed++;
-            return static_cast<T*>(std::malloc(size));
+            int16_t combineIdx = (size > 8)? combine(size >> 1, 2) : INVALID;
+            if(combineIdx == INVALID){ 
+                mallocUsed++;
+                return static_cast<T*>(std::malloc(size));}
+            else {
+                parallocUsed++;
+                return reinterpret_cast<T*>(buffer + combineIdx);}
         }
 
         void* ptr = buffer + head[sizeIdx];

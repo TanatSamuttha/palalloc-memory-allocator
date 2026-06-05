@@ -4,13 +4,22 @@
 #include <iomanip>
 #include "paralloc.h"
 
-struct InputData    { uint64_t buttons; };                                     
-struct Bullet       { float x, y, z, w; };                                     
-struct Player       { char name[16]; int hp; int mp; float speed; };           
-struct HeavyPayload { char chatMessage[128]; };                                
+// โครงสร้างข้อมูลขนาดต่างๆ
+struct InputData    { uint64_t buttons; };                                      // 8B
+struct Bullet       { float x, y, z, w; };                                      // 16B
+struct Player       { char name[16]; int hp; int mp; float speed; };            // 32B
+struct Effect       { char data[40]; };                                         // 40B (ลงพูล 64B)
+struct Command      { char data[56]; };                                         // 56B (ลงพูล 64B)
+struct HeavyPayload { char chatMessage[128]; };                                 // 128B (Fallback)
 
-const int ITERATIONS = 10'000'000; 
+// โครงสร้างสำหรับจัดการอายุขัย (Time-to-Live)
+template <typename T>
+struct Entity {
+    T* ptr = nullptr;
+    int ttl = 0; // จำนวนเฟรมที่เหลืออยู่ก่อนจะโดน Free
+};
 
+const int TOTAL_FRAMES = 100'000; // จำลองการรันเกม/เซิร์ฟเวอร์ 100,000 เฟรม
 inline uint32_t fast_rand(uint32_t& seed) {
     seed = seed * 1664525 + 1013904223;
     return seed;
@@ -20,43 +29,87 @@ double benchmarkMalloc() {
     uint32_t seed = 42;
     auto start = std::chrono::high_resolution_clock::now();
 
-    // ใช้ Array ขนาดคงที่ จองค้างไว้บางส่วน
-    Player* activePlayers[16] = {nullptr};
-    Bullet* activeBullets[64] = {nullptr};
+    // ถังเก็บ Entity ในระบบ
+    Entity<Player> activePlayers[20];
+    Entity<Bullet> activeBullets[128];
+    Entity<Effect> activeEffects[64];
 
-    for (int i = 0; i < ITERATIONS; ++i) {
-        // 1. จองและลบข้อมูลสั้นทันที
-        InputData* in1 = static_cast<InputData*>(std::malloc(sizeof(InputData)));
-        InputData* in2 = static_cast<InputData*>(std::malloc(sizeof(InputData)));
-        std::free(in1); std::free(in2);
-
-        // 2. สุ่มจัดการ Player (จองทับตำแหน่งสุ่ม / คืนค่าชิ้นเก่าตัวที่โดนทับ)
-        uint32_t pIdx = fast_rand(seed) % 16;
-        if (activePlayers[pIdx] && (fast_rand(seed) % 100 < 20)) { // 20% chance to free
-            std::free(activePlayers[pIdx]);
-            activePlayers[pIdx] = nullptr;
-        } else if (!activePlayers[pIdx]) {
-            activePlayers[pIdx] = static_cast<Player*>(std::malloc(sizeof(Player)));
+    for (int frame = 0; frame < TOTAL_FRAMES; ++frame) {
+        // 1. ทุกๆ เฟรม มีการจอง Input (เกิดไวตายไวในเฟรมเดียว)
+        for (int i = 0; i < 5; ++i) {
+            InputData* in = static_cast<InputData*>(std::malloc(sizeof(InputData)));
+            std::free(in);
         }
 
-        // 3. สุ่มจัดการ Bullet
-        uint32_t bIdx = fast_rand(seed) % 64;
-        if (activeBullets[bIdx] && (fast_rand(seed) % 100 < 40)) { // 40% chance to free
-            std::free(activeBullets[bIdx]);
-            activeBullets[bIdx] = nullptr;
-        } else if (!activeBullets[bIdx]) {
-            activeBullets[bIdx] = static_cast<Bullet*>(std::malloc(sizeof(Bullet)));
+        // 2. อัปเดตอายุขัย (TTL) ของข้อมูลเดิมที่มีอยู่ (ถ้าหมดอายุขัย ให้ Free ทิ้ง)
+        for (auto& p : activePlayers) {
+            if (p.ptr) {
+                p.ttl--;
+                if (p.ttl <= 0) { std::free(p.ptr); p.ptr = nullptr; }
+            }
+        }
+        for (auto& b : activeBullets) {
+            if (b.ptr) {
+                b.ttl--;
+                if (b.ttl <= 0) { std::free(b.ptr); b.ptr = nullptr; }
+            }
+        }
+        for (auto& e : activeEffects) {
+            if (e.ptr) {
+                e.ttl--;
+                if (e.ttl <= 0) { std::free(e.ptr); e.ptr = nullptr; }
+            }
         }
 
-        // 4. สุ่มเกิดข้อมูลใหญ่ล้นระบบ (1% chance)
-        if (fast_rand(seed) % 100 < 1) {
+        // 3. จำลองสภาพแวดล้อม: เฟรมปกติ VS เฟรมศึกหนัก (Spike Frame)
+        bool isSpikeFrame = (frame % 100 == 0); // เกิดการระเบิดใหญ่ทุกๆ 100 เฟรม
+        int bulletsToSpawn = isSpikeFrame ? 40 : (fast_rand(seed) % 3);
+        int effectsToSpawn = isSpikeFrame ? 20 : (fast_rand(seed) % 2);
+
+        // จองเมมให้กระสุนใหม่
+        for (int i = 0; i < bulletsToSpawn; ++i) {
+            int slot = fast_rand(seed) % 128;
+            if (!activeBullets[slot].ptr) { // ถ้าช่องว่าง ให้จอง
+                activeBullets[slot].ptr = static_cast<Bullet*>(std::malloc(sizeof(Bullet)));
+                activeBullets[slot].ttl = 10 + (fast_rand(seed) % 20); // อยู่ได้ 10-30 เฟรม
+            }
+        }
+
+        // จองเมมให้เอฟเฟกต์ใหม่
+        for (int i = 0; i < effectsToSpawn; ++i) {
+            int slot = fast_rand(seed) % 64;
+            if (!activeEffects[slot].ptr) {
+                activeEffects[slot].ptr = static_cast<Effect*>(std::malloc(sizeof(Effect)));
+                activeEffects[slot].ttl = 5 + (fast_rand(seed) % 10); // เอฟเฟกต์ตายไว อยู่ได้ 5-15 เฟรม
+            }
+        }
+
+        // สุ่มผู้เล่นเข้า/ออกเกม (แต่นานๆ ที)
+        if (fast_rand(seed) % 100 < 5) {
+            int slot = fast_rand(seed) % 20;
+            if (!activePlayers[slot].ptr) {
+                activePlayers[slot].ptr = static_cast<Player*>(std::malloc(sizeof(Player)));
+                activePlayers[slot].ttl = 200 + (fast_rand(seed) % 500); // ผู้เล่นอยู่นานมาก
+            }
+        }
+
+        // มี Command วิ่งเข้ามาประมวลผลเป็นระยะ
+        if (fast_rand(seed) % 10 < 3) {
+            Command* cmd = static_cast<Command*>(std::malloc(sizeof(Command)));
+            std::free(cmd);
+        }
+
+        // นานๆ ทีจะมีข้อความแชทขนาดใหญ่ (Oversize)
+        if (fast_rand(seed) % 1000 < 5) {
             HeavyPayload* msg = static_cast<HeavyPayload*>(std::malloc(sizeof(HeavyPayload)));
             std::free(msg);
         }
     }
 
-    for (int i = 0; i < 16; ++i) if (activePlayers[i]) std::free(activePlayers[i]);
-    for (int i = 0; i < 64; ++i) if (activeBullets[i]) std::free(activeBullets[i]);
+    // ล้างไพ่ตอนจบเกม
+    for (auto& p : activePlayers) if (p.ptr) std::free(p.ptr);
+    for (auto& b : activeBullets) if (b.ptr) std::free(b.ptr);
+    for (auto& e : activeEffects) if (e.ptr) std::free(e.ptr);
 
     auto end = std::chrono::high_resolution_clock::now();
     return std::chrono::duration<double, std::milli>(end - start).count();
@@ -67,38 +120,77 @@ double benchmarkParalloc() {
     Paralloc pool;
     auto start = std::chrono::high_resolution_clock::now();
 
-    Player* activePlayers[16] = {nullptr};
-    Bullet* activeBullets[64] = {nullptr};
+    Entity<Player> activePlayers[20];
+    Entity<Bullet> activeBullets[128];
+    Entity<Effect> activeEffects[64];
 
-    for (int i = 0; i < ITERATIONS; ++i) {
-        InputData* in1 = pool.galloc<InputData>();
-        InputData* in2 = pool.galloc<InputData>();
-        pool.free(in1); pool.free(in2);
-
-        uint32_t pIdx = fast_rand(seed) % 16;
-        if (activePlayers[pIdx] && (fast_rand(seed) % 100 < 20)) {
-            pool.free(activePlayers[pIdx]);
-            activePlayers[pIdx] = nullptr;
-        } else if (!activePlayers[pIdx]) {
-            activePlayers[pIdx] = pool.galloc<Player>();
+    for (int frame = 0; frame < TOTAL_FRAMES; ++frame) {
+        for (int i = 0; i < 5; ++i) {
+            InputData* in = pool.galloc<InputData>();
+            pool.free(in);
         }
 
-        uint32_t bIdx = fast_rand(seed) % 64;
-        if (activeBullets[bIdx] && (fast_rand(seed) % 100 < 40)) {
-            pool.free(activeBullets[bIdx]);
-            activeBullets[bIdx] = nullptr;
-        } else if (!activeBullets[bIdx]) {
-            activeBullets[bIdx] = pool.galloc<Bullet>();
+        for (auto& p : activePlayers) {
+            if (p.ptr) {
+                p.ttl--;
+                if (p.ttl <= 0) { pool.free(p.ptr); p.ptr = nullptr; }
+            }
+        }
+        for (auto& b : activeBullets) {
+            if (b.ptr) {
+                b.ttl--;
+                if (b.ttl <= 0) { pool.free(b.ptr); b.ptr = nullptr; }
+            }
+        }
+        for (auto& e : activeEffects) {
+            if (e.ptr) {
+                e.ttl--;
+                if (e.ttl <= 0) { pool.free(e.ptr); e.ptr = nullptr; }
+            }
         }
 
-        if (fast_rand(seed) % 100 < 1) {
+        bool isSpikeFrame = (frame % 100 == 0);
+        int bulletsToSpawn = isSpikeFrame ? 40 : (fast_rand(seed) % 3);
+        int effectsToSpawn = isSpikeFrame ? 20 : (fast_rand(seed) % 2);
+
+        for (int i = 0; i < bulletsToSpawn; ++i) {
+            int slot = fast_rand(seed) % 128;
+            if (!activeBullets[slot].ptr) {
+                activeBullets[slot].ptr = pool.galloc<Bullet>();
+                activeBullets[slot].ttl = 10 + (fast_rand(seed) % 20);
+            }
+        }
+
+        for (int i = 0; i < effectsToSpawn; ++i) {
+            int slot = fast_rand(seed) % 64;
+            if (!activeEffects[slot].ptr) {
+                activeEffects[slot].ptr = pool.galloc<Effect>();
+                activeEffects[slot].ttl = 5 + (fast_rand(seed) % 10);
+            }
+        }
+
+        if (fast_rand(seed) % 100 < 5) {
+            int slot = fast_rand(seed) % 20;
+            if (!activePlayers[slot].ptr) {
+                activePlayers[slot].ptr = pool.galloc<Player>();
+                activePlayers[slot].ttl = 200 + (fast_rand(seed) % 500);
+            }
+        }
+
+        if (fast_rand(seed) % 10 < 3) {
+            Command* cmd = pool.galloc<Command>();
+            pool.free(cmd);
+        }
+
+        if (fast_rand(seed) % 1000 < 5) {
             HeavyPayload* msg = pool.galloc<HeavyPayload>();
             pool.free(msg);
         }
     }
 
-    for (int i = 0; i < 16; ++i) if (activePlayers[i]) pool.free(activePlayers[i]);
-    for (int i = 0; i < 64; ++i) if (activeBullets[i]) pool.free(activeBullets[i]);
+    for (auto& p : activePlayers) if (p.ptr) pool.free(p.ptr);
+    for (auto& b : activeBullets) if (b.ptr) pool.free(b.ptr);
+    for (auto& e : activeEffects) if (e.ptr) pool.free(e.ptr);
 
     auto end = std::chrono::high_resolution_clock::now();
     double elapsed = std::chrono::duration<double, std::milli>(end - start).count();
@@ -112,9 +204,8 @@ double benchmarkParalloc() {
 }
 
 int main() {
-    std::cout << "Running Clean $O(1)$ Benchmark (" << ITERATIONS << " iterations)...\n";
+    std::cout << "Running Real-World Game Loop Simulator (" << TOTAL_FRAMES << " frames)...\n";
     
-    // อุ่นเครื่อง CPU 
     benchmarkMalloc(); 
     
     double tMalloc = benchmarkMalloc();

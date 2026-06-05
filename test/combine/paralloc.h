@@ -52,7 +52,9 @@ private:
 
     inline uint16_t combine(uint8_t size, uint8_t blocks){
         int sizeIdx = ctz(size) - 3;
+        if(size <= 8) return INVALID;
         uint16_t allSize = uint16_t(size) * blocks;
+        std::cout << "Hit " << sizeIdx << ' ' << virgin[sizeIdx] << ' ';
         if(virgin[sizeIdx] <= tail[sizeIdx] - allSize + 1){
             tail[sizeIdx] -= allSize;
 

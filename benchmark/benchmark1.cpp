@@ -7,7 +7,7 @@
 struct InputData    { uint64_t buttons; };                                     
 struct Bullet       { float x, y, z, w; };                                     
 struct Player       { char name[16]; int hp; int mp; float speed; };           
-struct HeavyPayload { char chatMessage[128]; };                               
+struct HeavyPayload { char chatMessage[128]; };                                
 
 const int ITERATIONS = 10'000'000; 
 
@@ -20,30 +20,35 @@ double benchmarkMalloc() {
     uint32_t seed = 42;
     auto start = std::chrono::high_resolution_clock::now();
 
+    // ใช้ Array ขนาดคงที่ จองค้างไว้บางส่วน
     Player* activePlayers[16] = {nullptr};
     Bullet* activeBullets[64] = {nullptr};
 
     for (int i = 0; i < ITERATIONS; ++i) {
+        // 1. จองและลบข้อมูลสั้นทันที
         InputData* in1 = static_cast<InputData*>(std::malloc(sizeof(InputData)));
         InputData* in2 = static_cast<InputData*>(std::malloc(sizeof(InputData)));
         std::free(in1); std::free(in2);
 
+        // 2. สุ่มจัดการ Player (จองทับตำแหน่งสุ่ม / คืนค่าชิ้นเก่าตัวที่โดนทับ)
         uint32_t pIdx = fast_rand(seed) % 16;
-        if (activePlayers[pIdx] && (fast_rand(seed) % 100 < 20)) { 
+        if (activePlayers[pIdx] && (fast_rand(seed) % 100 < 20)) { // 20% chance to free
             std::free(activePlayers[pIdx]);
             activePlayers[pIdx] = nullptr;
         } else if (!activePlayers[pIdx]) {
             activePlayers[pIdx] = static_cast<Player*>(std::malloc(sizeof(Player)));
         }
 
+        // 3. สุ่มจัดการ Bullet
         uint32_t bIdx = fast_rand(seed) % 64;
-        if (activeBullets[bIdx] && (fast_rand(seed) % 100 < 40)) { 
+        if (activeBullets[bIdx] && (fast_rand(seed) % 100 < 40)) { // 40% chance to free
             std::free(activeBullets[bIdx]);
             activeBullets[bIdx] = nullptr;
         } else if (!activeBullets[bIdx]) {
             activeBullets[bIdx] = static_cast<Bullet*>(std::malloc(sizeof(Bullet)));
         }
 
+        // 4. สุ่มเกิดข้อมูลใหญ่ล้นระบบ (1% chance)
         if (fast_rand(seed) % 100 < 1) {
             HeavyPayload* msg = static_cast<HeavyPayload*>(std::malloc(sizeof(HeavyPayload)));
             std::free(msg);
@@ -59,63 +64,49 @@ double benchmarkMalloc() {
 
 double benchmarkParalloc() {
     uint32_t seed = 42;
-    
-    // 💡 ใช้ข้อดีของ Object-Based: แยก Pool ตามหน้าที่และประเภทของข้อมูล
-    Paralloc inputPool;
-    Paralloc playerPool;
-    Paralloc bulletPool;
-    Paralloc heavyPool; 
-
+    Paralloc pool;
     auto start = std::chrono::high_resolution_clock::now();
 
     Player* activePlayers[16] = {nullptr};
     Bullet* activeBullets[64] = {nullptr};
 
     for (int i = 0; i < ITERATIONS; ++i) {
-        // 1. จัดการ InputData ผ่าน inputPool
-        InputData* in1 = inputPool.galloc<InputData>();
-        InputData* in2 = inputPool.galloc<InputData>();
-        inputPool.free(in1); inputPool.free(in2);
+        InputData* in1 = pool.galloc<InputData>();
+        InputData* in2 = pool.galloc<InputData>();
+        pool.free(in1); pool.free(in2);
 
-        // 2. จัดการ Player ผ่าน playerPool
         uint32_t pIdx = fast_rand(seed) % 16;
         if (activePlayers[pIdx] && (fast_rand(seed) % 100 < 20)) {
-            playerPool.free(activePlayers[pIdx]);
+            pool.free(activePlayers[pIdx]);
             activePlayers[pIdx] = nullptr;
         } else if (!activePlayers[pIdx]) {
-            activePlayers[pIdx] = playerPool.galloc<Player>();
+            activePlayers[pIdx] = pool.galloc<Player>();
         }
 
-        // 3. จัดการ Bullet ผ่าน bulletPool
         uint32_t bIdx = fast_rand(seed) % 64;
         if (activeBullets[bIdx] && (fast_rand(seed) % 100 < 40)) {
-            bulletPool.free(activeBullets[bIdx]);
+            pool.free(activeBullets[bIdx]);
             activeBullets[bIdx] = nullptr;
         } else if (!activeBullets[bIdx]) {
-            activeBullets[bIdx] = bulletPool.galloc<Bullet>();
+            activeBullets[bIdx] = pool.galloc<Bullet>();
         }
 
-        // 4. จัดการ HeavyPayload ผ่าน heavyPool
         if (fast_rand(seed) % 100 < 1) {
-            HeavyPayload* msg = heavyPool.galloc<HeavyPayload>();
-            heavyPool.free(msg);
+            HeavyPayload* msg = pool.galloc<HeavyPayload>();
+            pool.free(msg);
         }
     }
 
-    // 💡 ไม่ต้องลูปสั่ง pool.free() คืนค่าทีละตัวตอนท้ายฟังก์ชันเหมือนโค้ดเก่า!
-    // เพราะทันทีที่จบฟังก์ชัน Destructor ของแต่ละ Pool จะคืนค่าหน่วยความจำยกก้อน (4096 bytes) ทันทีอยู่แล้ว
+    for (int i = 0; i < 16; ++i) if (activePlayers[i]) pool.free(activePlayers[i]);
+    for (int i = 0; i < 64; ++i) if (activeBullets[i]) pool.free(activeBullets[i]);
 
     auto end = std::chrono::high_resolution_clock::now();
     double elapsed = std::chrono::duration<double, std::milli>(end - start).count();
 
-    // รวมสถิติการใช้งานจากทุก Pool
-    double totalParallocUsed = inputPool.parallocUsed + playerPool.parallocUsed + bulletPool.parallocUsed + heavyPool.parallocUsed;
-    double totalMallocUsed = inputPool.mallocUsed + playerPool.mallocUsed + bulletPool.mallocUsed + heavyPool.mallocUsed;
-    double totalAllocs = totalParallocUsed + totalMallocUsed;
-    
-    std::cout << "[Paralloc Pools ]\n";
-    std::cout << "  -> Pool Success      : " << totalParallocUsed << " times (" << (totalParallocUsed / totalAllocs) * 100.0 << "%)\n";
-    std::cout << "  -> Fallback (Malloc) : " << totalMallocUsed << " times (" << (totalMallocUsed / totalAllocs) * 100.0 << "%)\n";
+    double totalAllocs = pool.parallocUsed + pool.mallocUsed;
+    std::cout << "[Paralloc Pool  ]\n";
+    std::cout << "  -> Pool Success      : " << pool.parallocUsed << " times (" << (pool.parallocUsed / totalAllocs) * 100.0 << "%)\n";
+    std::cout << "  -> Fallback (Malloc) : " << pool.mallocUsed << " times (" << (pool.mallocUsed / totalAllocs) * 100.0 << "%)\n";
 
     return elapsed;
 }

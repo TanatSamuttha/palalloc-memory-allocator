@@ -19,7 +19,7 @@ struct Entity {
     int ttl = 0; // จำนวนเฟรมที่เหลืออยู่ก่อนจะโดน Free
 };
 
-const int TOTAL_FRAMES = 100'000; // จำลองการรันเกม/เซิร์ฟเวอร์ 100,000 เฟรม
+const int TOTAL_FRAMES = 100'000'000; // จำลองการรันเกม/เซิร์ฟเวอร์ 100,000 เฟรม
 inline uint32_t fast_rand(uint32_t& seed) {
     seed = seed * 1664525 + 1013904223;
     return seed;

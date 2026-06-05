@@ -41,9 +41,9 @@ int main(){
 
     for(int step = 0; step < OPS; step++){
 
-        std::cout << "\n====================\n";
-        std::cout << "STEP = " << step << '\n';
-        std::cout << "alive = " << alive.size() << '\n';
+        // std::cout << "\n====================\n";
+        // std::cout << "STEP = " << step << '\n';
+        // std::cout << "alive = " << alive.size() << '\n';
 
         bool doAlloc =
             alive.empty() ||
@@ -53,12 +53,12 @@ int main(){
 
             int type = rng() % 4;
 
-            std::cout << "ALLOC TYPE = " << type << '\n';
+            // std::cout << "ALLOC TYPE = " << type << '\n';
 
             Node node;
             node.type = type;
 
-            std::cout << "Before alloc\n";
+            // std::cout << "Before alloc\n";
 
             switch(type){
 
@@ -79,33 +79,33 @@ int main(){
                     break;
             }
 
-            std::cout << "After alloc\n";
+            // std::cout << "After alloc\n";
 
-            std::cout
-                << "PTR = "
-                << node.ptr
-                << '\n';
+            // std::cout
+            //     << "PTR = "
+            //     << node.ptr
+            //     << '\n';
 
-            if(node.ptr == nullptr){
+            // if(node.ptr == nullptr){
 
-                std::cout
-                    << "NULL POINTER\n";
+            //     std::cout
+            //         << "NULL POINTER\n";
 
-                return 1;
-            }
+            //     return 1;
+            // }
 
-            std::cout
-                << "Writing test pattern\n";
+            // std::cout
+            //     << "Writing test pattern\n";
 
             ((char*)node.ptr)[0] = 123;
 
-            std::cout
-                << "Write success\n";
+            // std::cout
+            //     << "Write success\n";
 
             alive.push_back(node);
 
-            std::cout
-                << "Push vector success\n";
+            // std::cout
+            //     << "Push vector success\n";
         }
         else{
 
@@ -115,20 +115,20 @@ int main(){
             Node node =
                 alive[idx];
 
-            std::cout
-                << "FREE INDEX = "
-                << idx
-                << '\n';
+            // std::cout
+            //     << "FREE INDEX = "
+            //     << idx
+            //     << '\n';
 
-            std::cout
-                << "PTR = "
-                << node.ptr
-                << '\n';
+            // std::cout
+            //     << "PTR = "
+            //     << node.ptr
+            //     << '\n';
 
-            std::cout
-                << "TYPE = "
-                << node.type
-                << '\n';
+            // std::cout
+            //     << "TYPE = "
+            //     << node.type
+            //     << '\n';
 
             switch(node.type){
 
@@ -149,16 +149,16 @@ int main(){
                     break;
             }
 
-            std::cout
-                << "Free success\n";
+            // std::cout
+            //     << "Free success\n";
 
             alive[idx] =
                 alive.back();
 
             alive.pop_back();
 
-            std::cout
-                << "Vector update success\n";
+            // std::cout
+            //     << "Vector update success\n";
         }
     }
 
