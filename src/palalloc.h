@@ -18,7 +18,7 @@ private:
         size 32 bytes is located a index 2
         size 64 bytes is located a index 3
 
-        hashed by count trail zero and decrease by 3
+        encoded by count trail zero and decrease by 3
     */
     size_t head[4];
     size_t virgin[4];
