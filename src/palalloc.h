@@ -7,8 +7,10 @@
 class Palalloc{
 private:
     uint8_t* pool = nullptr;
+
+    size_t poolSize;
     
-    const uint16_t INVALID = 0xFFFF;
+    const size_t INVALID = static_cast<size_t>(-1);
 
     /*
         size 8 bytes is located at index 0
@@ -18,14 +20,14 @@ private:
 
         hashed by count trail zero and decrease by 3
     */
-    uint16_t head[4] = {INVALID, INVALID, INVALID, INVALID};
-    uint16_t virgin[4] = {0, 2048, 3072, 3584};
-    uint16_t tail[4] = {2047, 3071, 3583, 4095};
+    size_t head[4];
+    size_t virgin[4];
+    size_t tail[4];
 
     bool firstTime = true;
 
 private:
-    inline int findSize(size_t size){
+    inline size_t findSize(size_t size){
         if(size <= 8) return 8;
         if(size <= 16) return 16;
         if(size <= 32) return 32;
@@ -34,12 +36,12 @@ private:
         return INVALID;
     }
 
-    inline uint16_t combine(uint8_t size, uint8_t blocks){
-        int sizeIdx = ctz(size) - 3;
-        uint16_t allSize = uint16_t(size) * blocks;
+    inline size_t combine(size_t size, size_t blocks){
+        uint8_t sizeIdx = ctz(static_cast<uint32_t>(size)) - 3;
+        size_t allSize = static_cast<size_t>(size) * blocks;
 
         if(tail[sizeIdx] >= allSize - 1 && virgin[sizeIdx] <= tail[sizeIdx] - allSize + 1){
-            uint16_t allocIdx = tail[sizeIdx] - allSize + 1;
+            size_t allocIdx = tail[sizeIdx] - allSize + 1;
             tail[sizeIdx] -= allSize;
 
             return allocIdx;
@@ -57,13 +59,13 @@ private:
     #ifdef _MSC_VER
     #include <intrin.h>
 
-    inline int ctz(unsigned int x){
-        unsigned long idx;
+    inline int8_t ctz(uint32_t x){
+        size_t idx;
         _BitScanForward(&idx, x);
-        return (int)idx;
+        return static_cast<int>(idx);
     }
     #else
-    inline int ctz(unsigned int x){
+    inline int8_t ctz(uint32_t x){
         return __builtin_ctz(x);
     }
     #endif
@@ -73,24 +75,24 @@ private:
     #else
     __attribute__((noinline))
     #endif
-    void* loadChunk(int sizeIdx, int size){
+    void* loadChunk(uint8_t sizeIdx, size_t size){
         if(virgin[sizeIdx] + size > tail[sizeIdx] + 1) return nullptr;
 
-        int chunkSize = 16;
-        uint16_t startVirgin = virgin[sizeIdx];
-        uint16_t current = startVirgin;
+        uint8_t chunkSize = 16;
+        size_t startVirgin = virgin[sizeIdx];
+        size_t current = startVirgin;
 
         uint8_t* ptr = pool + current;
-        int allocatedCount = 1;
+        size_t allocatedCount = 1;
 
         for(int i = 0; i < chunkSize - 1; ++i){
             if(current + size * 2 > tail[sizeIdx] + 1) break;
-            *(uint8_t**)ptr = ptr + size;
+            *reinterpret_cast<uint8_t**>(ptr) = ptr + size;
             ptr += size;
             current += size;
             allocatedCount++;
         }
-        *(uint8_t**)ptr = nullptr;
+        *reinterpret_cast<uint8_t**>(ptr) = nullptr;
 
         virgin[sizeIdx] = current + size;
 
@@ -103,7 +105,9 @@ private:
 
 public:
 
-    Palalloc(){}
+    Palalloc(size_t pages){
+        poolSize = 4096 * pages;
+    }
 
     ~Palalloc(){
         std::free(pool);
@@ -113,56 +117,59 @@ public:
     Palalloc& operator=(const Palalloc&) = delete;
 
     inline void* getpool(){
-        return (void*)pool;
+        return static_cast<void*>(pool);
     }
 
     template<typename T>
-    inline int getHead(){
-        int size = findSize(sizeof(T));
+    inline size_t getHead(){
+        size_t size = findSize(sizeof(T));
         if(size == INVALID) return INVALID;
-        int sizeIdx = ctz(size) - 3;
+        uint8_t sizeIdx = ctz(static_cast<uint32_t>(size)) - 3;
         return head[sizeIdx];
     }
 
     template<typename T>
-    inline int getTail(){
-        int size = findSize(sizeof(T));
+    inline size_t getTail(){
+        size_t size = findSize(sizeof(T));
         if(size == INVALID) return INVALID;
-        int sizeIdx = ctz(size) - 3;
+        uint8_t sizeIdx = ctz(static_cast<uint32_t>(size)) - 3;
         return tail[sizeIdx];
     }
 
     template<typename T>
-    inline int getVirgin(){
-        int size = findSize(sizeof(T));
+    inline size_t getVirgin(){
+        size_t size = findSize(sizeof(T));
         if(size == INVALID) return INVALID;
-        int sizeIdx = ctz(size) - 3;
+        uint8_t sizeIdx = ctz(static_cast<uint32_t>(size)) - 3;
         return virgin[sizeIdx];
     }
 
     template<typename T>
     inline T* alloc(){
         if(firstTime){
-            pool = (uint8_t*)std::malloc(4096);
+            pool = static_cast<uint8_t*>(std::malloc(poolSize));
+            reset();
             firstTime = false;
         }
 
-        int size = findSize(sizeof(T));
-        int sizeIdx = ctz(size) - 3;
+        size_t size = findSize(sizeof(T));
+        if(size == INVALID) return nullptr;
+
+        uint8_t sizeIdx = ctz(static_cast<uint32_t>(size)) - 3;
 
         if(head[sizeIdx] != INVALID){
             void* ptr = pool + head[sizeIdx];
-            uint8_t* next = *(uint8_t**)ptr;
-            head[sizeIdx] = (next == nullptr) ? INVALID : next - pool;
-            return (T*)ptr;
+            uint8_t* next = *reinterpret_cast<uint8_t**>(ptr);
+            head[sizeIdx] = (next == nullptr) ? INVALID : static_cast<size_t>(next - pool);
+            return reinterpret_cast<T*>(ptr);
         }
 
         void* newPtr = loadChunk(sizeIdx, size);
         if (newPtr != nullptr) {
-            return (T*)newPtr;
+            return reinterpret_cast<T*>(newPtr);
         }
 
-        int16_t combineIdx = (size > 8) ? combine(size >> 1, 2) : INVALID;
+        size_t combineIdx = (size > 8) ? combine(size >> 1, 2) : INVALID;
         if(combineIdx != INVALID) {
             return reinterpret_cast<T*>(pool + combineIdx);
         }
@@ -172,34 +179,48 @@ public:
 
     template<typename T>
     inline T* galloc(){
-        int size = findSize(sizeof(T));
+        size_t size = findSize(sizeof(T));
         if(sizeof(T) <= 64){
             return alloc<T>();
         }
-        return (T*)std::malloc(sizeof(T));
+        return static_cast<T*>(std::malloc(sizeof(T)));
     }
 
     template<typename T>
     inline void free(T* ptr){
-        int size = findSize(sizeof(T));
+        size_t size = findSize(sizeof(T));
         if (size > 64){
             std::free(ptr);
             return;
         }
         
-        uint8_t* ptrByte = (uint8_t*)ptr;
+        uint8_t* ptrByte = reinterpret_cast<uint8_t*>(ptr);
 
-        if(ptrByte < pool || ptrByte >= pool + 4096){
+        if(ptrByte < pool || ptrByte >= pool + poolSize){
             std::free(ptr);
             return;
         }
 
-        int sizeIdx = ctz(size) - 3;
+        uint8_t sizeIdx = ctz(static_cast<uint32_t>(size)) - 3;
 
         uint8_t* headPtr = (head[sizeIdx] != INVALID)? pool + head[sizeIdx] : nullptr;
 
-        *(uint8_t**)ptrByte = headPtr;
-        head[sizeIdx] = ptrByte - pool;
+        *reinterpret_cast<uint8_t**>(ptrByte) = headPtr;
+        head[sizeIdx] = static_cast<size_t>(ptrByte - pool);
+    }
+
+    void reset(){
+        head[0] = head[1] = head[2] = head[3] = INVALID;
+
+        virgin[0] = 0; 
+        virgin[1] = (poolSize >> 1); // 2048 at 1 page
+        virgin[2] = (poolSize >> 1) + (poolSize >> 2); // 3072 at 1 page
+        virgin[3] = (poolSize >> 1) + (poolSize >> 2) + (poolSize >> 3); // 3584 at 1 page
+
+        tail[0] = (poolSize >> 1) - 1; // 2047 at 1 page
+        tail[1] = (poolSize >> 1) + (poolSize >> 2) - 1; // 3071 at 1 page
+        tail[2] = (poolSize >> 1) + (poolSize >> 2) + (poolSize >> 3) - 1; // 3583 at 1 page
+        tail[3] = poolSize - 1; // 4095 at 1 page
     }
 };
 
