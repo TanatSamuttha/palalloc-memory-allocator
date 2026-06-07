@@ -1,5 +1,5 @@
-# paralloc
-## parallel-index memory-allocator
+# palalloc
+## pool-adaptive-linking memory-allocator
 
 ```
 cd src
