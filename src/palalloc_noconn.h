@@ -1,12 +1,12 @@
-#ifndef PARALLOC_H
-#define PARALLOC_H
+#ifndef PALALLOC_H
+#define PALALLOC_H
 
 #include <cstdint>
 #include <cstdlib>
 
-class Paralloc{
+class Palalloc{
 private:
-    uint8_t* buffer;
+    uint8_t* pool = nullptr;
 
     /*
         size 8 bytes is located at index 0
@@ -34,38 +34,27 @@ private:
         return INVALID;
     }
 
-    inline void connect(uint8_t size, uint16_t chunkSize){
+    inline uint16_t combine(uint8_t size, uint8_t blocks){
         int sizeIdx = ctz(size) - 3;
         
-        uint16_t headPad = head[sizeIdx];
-        uint8_t* headPtr = buffer + headPad;
-        uint8_t* ptr = buffer + headPad;
+        uint16_t allSize = uint16_t(size) * blocks;
         
-        while(ptr + size < headPtr + chunkSize){
-            *(uint8_t**)ptr = ptr + size;
-            ptr += size;
-        }
-        
-        *(uint8_t**)ptr = nullptr;
-    }
+        if(tail[sizeIdx] >= allSize - 1 && virgin[sizeIdx] < tail[sizeIdx] - allSize + 1){
+            uint16_t allocIdx = tail[sizeIdx] - allSize + 1;
+            
+            tail[sizeIdx] -= allSize;
 
-    inline uint16_t combine(uint8_t size){
-        int sizeIdx = ctz(size) - 3;
-        uint8_t size2 = size + size;
-        if(virgin[sizeIdx] <= tail[sizeIdx] - size2 + 1){
-            tail[sizeIdx] -= size2;
+            uint8_t* ptr = pool + (allocIdx - size);
+            *(uint8_t**)ptr = nullptr;
 
-            uint8_t* ptr = buffer + (tail[sizeIdx] - size + 1);
-            *reinterpret_cast<uint8_t**>(ptr) = nullptr;
-
-            return tail[sizeIdx] + 1;
+            return allocIdx;
         }
         else{
             if(size <= 8){
                 return INVALID;
             }
             else{
-                return combine(size >> 1);
+                return combine((size >> 1), (blocks << 1));
             }
         }
     }
@@ -85,21 +74,47 @@ private:
     #endif
 
 public:
-    ~Paralloc(){
-        std::free(buffer);
+    Palalloc(){}
+
+    ~Palalloc(){
+        std::free(pool);
     }
 
-    Paralloc(const Paralloc&) = delete;
-    Paralloc& operator=(const Paralloc&) = delete;
+    Palalloc(const Palalloc&) = delete;
+    Palalloc& operator=(const Palalloc&) = delete;
+
+    inline void* getpool(){
+        return (void*)pool;
+    }
+
+    template<typename T>
+    inline int getHead(){
+        int size = findSize(sizeof(T));
+        if(size == INVALID) return INVALID;
+        int sizeIdx = ctz(size) - 3;
+        return head[sizeIdx];
+    }
+
+    template<typename T>
+    inline int getTail(){
+        int size = findSize(sizeof(T));
+        if(size == INVALID) return INVALID;
+        int sizeIdx = ctz(size) - 3;
+        return tail[sizeIdx];
+    }
+
+    template<typename T>
+    inline int getVirgin(){
+        int size = findSize(sizeof(T));
+        if(size == INVALID) return INVALID;
+        int sizeIdx = ctz(size) - 3;
+        return virgin[sizeIdx];
+    }
 
     template<typename T>
     inline T* alloc(){
         if(firstTime){
-            buffer = (uint8_t*)std::malloc(4096);
-            connect(8, 2048);
-            connect(16, 1024);
-            connect(32, 512);
-            connect(64, 512);
+            pool = (uint8_t*)std::malloc(4096);
             firstTime = false;
         }
 
@@ -107,16 +122,20 @@ public:
         int sizeIdx = ctz(size) - 3;
 
         if(head[sizeIdx] == INVALID){
-            int16_t combineIdx = combine(size >> 1);
+            int16_t combineIdx = (size > 8)? combine(size >> 1, 2) : INVALID;
             if(combineIdx == INVALID) return static_cast<T*>(std::malloc(size));
-            else return reinterpret_cast<T*>(buffer + combineIdx);
+            else return reinterpret_cast<T*>(pool + combineIdx);
         }
 
-        void* ptr = buffer + head[sizeIdx];
-        if(head[sizeIdx] == virgin[sizeIdx]) virgin[sizeIdx] += size;
-
-        uint8_t* next = *(uint8_t**)ptr;
-        head[sizeIdx] = (next == nullptr)? INVALID : next - buffer;
+        void* ptr = pool + head[sizeIdx];
+        if(head[sizeIdx] == virgin[sizeIdx]){
+            virgin[sizeIdx] += size;
+            head[sizeIdx] = (virgin[sizeIdx] > tail[sizeIdx])? INVALID : head[sizeIdx] + size;
+        }
+        else{
+            uint8_t* next = *(uint8_t**)ptr;
+            head[sizeIdx] = (next == nullptr)? INVALID : next - pool;
+        }
 
         return (T*)ptr;
     }
@@ -140,17 +159,17 @@ public:
         
         uint8_t* ptrByte = (uint8_t*)ptr;
 
-        if(ptrByte < buffer || ptrByte >= buffer + 4096){
+        if(ptrByte < pool || ptrByte >= pool + 4096){
             std::free(ptr);
             return;
         }
 
         int sizeIdx = ctz(size) - 3;
 
-        uint8_t* headPtr = (head[sizeIdx] != INVALID)? buffer + head[sizeIdx] : nullptr;
+        uint8_t* headPtr = (head[sizeIdx] != INVALID)? pool + head[sizeIdx] : nullptr;
 
         *(uint8_t**)ptrByte = headPtr;
-        head[sizeIdx] = ptrByte - buffer;
+        head[sizeIdx] = ptrByte - pool;
         if(head[sizeIdx] == virgin[sizeIdx] - size) virgin[sizeIdx] -= size;
     }
 };
