@@ -38,22 +38,47 @@ private:
 
     inline size_t combine(size_t size, size_t blocks){
         uint8_t sizeIdx = ctz(static_cast<uint32_t>(size)) - 3;
-        size_t allSize = static_cast<size_t>(size) * blocks;
+        size_t requirBytes = static_cast<size_t>(size) * blocks;
 
-        if(tail[sizeIdx] >= allSize - 1 && virgin[sizeIdx] <= tail[sizeIdx] - allSize + 1){
-            size_t allocIdx = tail[sizeIdx] - allSize + 1;
-            tail[sizeIdx] -= allSize;
+        if(tail[sizeIdx] >= requirBytes - 1 && virgin[sizeIdx] <= tail[sizeIdx] - requirBytes + 1){
+            size_t allocIdx = tail[sizeIdx] - requirBytes + 1;
+            tail[sizeIdx] -= requirBytes;
 
             return allocIdx;
         }
         else{
-            if(size <= 8){
-                return INVALID;
-            }
-            else{
-                return combine((size >> 1), (blocks << 1));
-            }
+            if(size <= 8) return INVALID;
+            else return combine((size >> 1), (blocks << 1));
         }
+    }
+
+    inline size_t split(size_t size){
+        uint8_t sizeIdx = ctz(static_cast<uint32_t>(size)) - 3;
+        size_t blockStart = INVALID;
+
+        if(tail[sizeIdx] >= size - 1 && virgin[sizeIdx] <= tail[sizeIdx] - size + 1){
+            blockStart = tail[sizeIdx] - size + 1;
+            tail[sizeIdx] -= size;
+        }
+        else if(size < 64){
+            blockStart = split(size << 1); 
+        }
+
+        if(blockStart != INVALID){
+            size_t subSize = size >> 1;
+            size_t frontBlock = blockStart;
+            size_t backBlock = blockStart + subSize;
+
+            uint8_t* frontPtr = pool + frontBlock;
+            uint8_t* requesterHeadPtr = (head[sizeIdx - 1] != INVALID) ? (pool + head[sizeIdx - 1]) : nullptr;
+            
+            *reinterpret_cast<uint8_t**>(frontPtr) = requesterHeadPtr;
+            head[sizeIdx - 1] = frontBlock;
+
+            return backBlock;
+        }
+
+        return INVALID;
     }
     
     #ifdef _MSC_VER
@@ -168,13 +193,18 @@ public:
         }
 
         void* newPtr = loadChunk(sizeIdx, size);
-        if (newPtr != nullptr) {
+        if(newPtr != nullptr){
             return reinterpret_cast<T*>(newPtr);
         }
 
         size_t combineIdx = (size > 8) ? combine(size >> 1, 2) : INVALID;
-        if(combineIdx != INVALID) {
+        if(combineIdx != INVALID){
             return reinterpret_cast<T*>(pool + combineIdx);
+        }
+
+        size_t splitIdx = (size < 64) ? split(size << 1) : INVALID;
+        if(splitIdx != INVALID){
+            return reinterpret_cast<T*>(pool + splitIdx);
         }
 
         return static_cast<T*>(std::malloc(size));
