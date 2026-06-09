@@ -3,6 +3,7 @@
 
 #include <cstdint>
 #include <cstdlib>
+#include <stdexcept>
 
 class Palalloc{
 private:
@@ -11,6 +12,8 @@ private:
     size_t poolSize;
     
     const size_t INVALID = static_cast<size_t>(-1);
+
+    size_t encodeSub;
 
     /*
         size 8 bytes is located at index 0
@@ -23,21 +26,22 @@ private:
     size_t head[4];
     size_t virgin[4];
     size_t tail[4];
+    size_t sizeClass[4];
 
     bool firstTime = true;
 
 private:
-    inline size_t findSize(size_t size){
-        if(size <= 8) return 8;
-        if(size <= 16) return 16;
-        if(size <= 32) return 32;
-        if(size <= 64) return 64;
+    inline size_t fitSize(size_t size){
+        if(size <= sizeClass[0]) return sizeClass[0];
+        if(size <= sizeClass[1]) return sizeClass[1];
+        if(size <= sizeClass[2]) return sizeClass[2];
+        if(size <= sizeClass[3]) return sizeClass[3];
 
         return INVALID;
     }
 
     inline size_t combine(size_t size, size_t blocks){
-        uint8_t sizeIdx = ctz(static_cast<uint32_t>(size)) - 3;
+        uint8_t sizeIdx = ctz(static_cast<uint32_t>(size)) - encodeSub;
         size_t requirBytes = static_cast<size_t>(size) * blocks;
 
         if(tail[sizeIdx] >= requirBytes - 1 && virgin[sizeIdx] <= tail[sizeIdx] - requirBytes + 1){
@@ -47,20 +51,20 @@ private:
             return allocIdx;
         }
         else{
-            if(size <= 8) return INVALID;
+            if(size <= sizeClass[0]) return INVALID;
             else return combine((size >> 1), (blocks << 1));
         }
     }
 
     inline size_t split(size_t size){
-        uint8_t sizeIdx = ctz(static_cast<uint32_t>(size)) - 3;
+        uint8_t sizeIdx = ctz(static_cast<uint32_t>(size)) - encodeSub;
         size_t blockStart = INVALID;
 
         if(tail[sizeIdx] >= size - 1 && virgin[sizeIdx] <= tail[sizeIdx] - size + 1){
             blockStart = tail[sizeIdx] - size + 1;
             tail[sizeIdx] -= size;
         }
-        else if(size < 64){
+        else if(size < sizeClass[3]){
             blockStart = split(size << 1); 
         }
 
@@ -129,8 +133,32 @@ private:
     }
 
 public:
-    inline Palalloc(size_t pages){
-        poolSize = 4096 * pages;
+    inline Palalloc(size_t pages, size_t maxSize){
+        poolSize = pages * 4096;
+
+        if(maxSize > (poolSize >> 3)){
+            throw std::invalid_argument("maxSize exceeds the allowed limit based is (pages * 4096) / 8");
+        }
+
+        maxSize = std::max(maxSize, (size_t)64);
+
+        if ((maxSize & (maxSize - 1)) != 0) {
+            maxSize--;
+            maxSize |= maxSize >> 1;
+            maxSize |= maxSize >> 2;
+            maxSize |= maxSize >> 4;
+            maxSize |= maxSize >> 8;
+            maxSize |= maxSize >> 16;
+            maxSize |= maxSize >> 32;
+            maxSize++;
+        }
+
+        sizeClass[0] = (maxSize >> 3);
+        sizeClass[1] = (maxSize >> 2);
+        sizeClass[2] = (maxSize >> 1);
+        sizeClass[3] = maxSize;
+
+        encodeSub = ctz(static_cast<uint32_t>(sizeClass[0]));
     }
 
     inline ~Palalloc(){
@@ -154,25 +182,25 @@ public:
 
     template<typename T>
     inline size_t getHead(){
-        size_t size = findSize(sizeof(T));
+        size_t size = fitSize(sizeof(T));
         if(size == INVALID) return INVALID;
-        uint8_t sizeIdx = ctz(static_cast<uint32_t>(size)) - 3;
+        uint8_t sizeIdx = ctz(static_cast<uint32_t>(size)) - encodeSub;
         return head[sizeIdx];
     }
 
     template<typename T>
     inline size_t getTail(){
-        size_t size = findSize(sizeof(T));
+        size_t size = fitSize(sizeof(T));
         if(size == INVALID) return INVALID;
-        uint8_t sizeIdx = ctz(static_cast<uint32_t>(size)) - 3;
+        uint8_t sizeIdx = ctz(static_cast<uint32_t>(size)) - encodeSub;
         return tail[sizeIdx];
     }
 
     template<typename T>
     inline size_t getVirgin(){
-        size_t size = findSize(sizeof(T));
+        size_t size = fitSize(sizeof(T));
         if(size == INVALID) return INVALID;
-        uint8_t sizeIdx = ctz(static_cast<uint32_t>(size)) - 3;
+        uint8_t sizeIdx = ctz(static_cast<uint32_t>(size)) - encodeSub;
         return virgin[sizeIdx];
     }
 
@@ -180,10 +208,10 @@ public:
     inline T* alloc(){
         if(firstTime) init();
 
-        size_t size = findSize(sizeof(T));
+        size_t size = fitSize(sizeof(T));
         if(size == INVALID) return nullptr;
 
-        uint8_t sizeIdx = ctz(static_cast<uint32_t>(size)) - 3;
+        uint8_t sizeIdx = ctz(static_cast<uint32_t>(size)) - encodeSub;
 
         if(head[sizeIdx] != INVALID){
             void* ptr = pool + head[sizeIdx];
@@ -197,12 +225,12 @@ public:
             return reinterpret_cast<T*>(newPtr);
         }
 
-        size_t combineIdx = (size > 8) ? combine(size >> 1, 2) : INVALID;
+        size_t combineIdx = (size > sizeClass[0]) ? combine(size >> 1, 2) : INVALID;
         if(combineIdx != INVALID){
             return reinterpret_cast<T*>(pool + combineIdx);
         }
 
-        size_t splitIdx = (size < 64) ? split(size << 1) : INVALID;
+        size_t splitIdx = (size < sizeClass[3]) ? split(size << 1) : INVALID;
         if(splitIdx != INVALID){
             return reinterpret_cast<T*>(pool + splitIdx);
         }
@@ -212,8 +240,8 @@ public:
 
     template<typename T>
     inline T* galloc(){
-        size_t size = findSize(sizeof(T));
-        if(sizeof(T) <= 64){
+        size_t size = fitSize(sizeof(T));
+        if(sizeof(T) <= sizeClass[3]){
             return alloc<T>();
         }
         return static_cast<T*>(std::malloc(sizeof(T)));
@@ -221,8 +249,8 @@ public:
 
     template<typename T>
     inline void free(T* ptr){
-        size_t size = findSize(sizeof(T));
-        if (size > 64){
+        size_t size = fitSize(sizeof(T));
+        if (size > sizeClass[3]){
             std::free(ptr);
             return;
         }
@@ -234,7 +262,7 @@ public:
             return;
         }
 
-        uint8_t sizeIdx = ctz(static_cast<uint32_t>(size)) - 3;
+        uint8_t sizeIdx = ctz(static_cast<uint32_t>(size)) - encodeSub;
 
         uint8_t* headPtr = (head[sizeIdx] != INVALID)? pool + head[sizeIdx] : nullptr;
 
