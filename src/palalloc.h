@@ -31,13 +31,13 @@ private:
     bool firstTime = true;
 
 private:
-    inline size_t fitSize(size_t size){
-        if(size <= sizeClass[0]) return sizeClass[0];
-        if(size <= sizeClass[1]) return sizeClass[1];
-        if(size <= sizeClass[2]) return sizeClass[2];
-        if(size <= sizeClass[3]) return sizeClass[3];
-
-        return INVALID;
+    #ifdef _MSC_VER
+        #define PAL_FORCE_INLINE __forceinline
+    #else
+        #define PAL_FORCE_INLINE inline __attribute__((always_inline))
+    #endif
+    size_t fitSize(size_t size){
+        return (size > sizeClass[3]) ? INVALID : sizeClass[(size > sizeClass[0]) + (size > sizeClass[1]) + (size > sizeClass[2])];
     }
 
     inline size_t combine(size_t size, size_t blocks){
