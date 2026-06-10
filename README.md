@@ -1,7 +1,12 @@
 # palalloc
 ## pool-adaptive-linking memory-allocator
 
-This project is under developping but it is mostly complete and ready to use. Palalloc is memory allocator that design to do every method in O1 time complexity trade off by lower data size flexibility than std::malloc.
+Palalloc is thread local pool based memory allocator that design to allocate, free and reset in O(1) time complexity with free-list trade off by lower data size flexibility than std::malloc.
+
+## How it work?
+- Use LIFO(Last-In First-Out) allocate and free.
+- If out of block for allocating size class, palalloc will combine 2 last blocks of smaller size class recuirsively otherwise it will split the last block of larger size class into a half recursively. If still out of available spaces or the size is bigger than declared maxSize, pallaoc call std::malloc for fallback.
+- Reset method is only reset meta-data but hard-reset method is also free the memory pool.
 
 ## How to use
 1. Add palalloc.h into your project folder and include it.
