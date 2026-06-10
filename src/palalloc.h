@@ -137,7 +137,8 @@ public:
         poolSize = pages * 4096;
 
         if(maxSize > (poolSize >> 3)){
-            throw std::invalid_argument("maxSize exceeds the allowed limit based is (pages * 4096) / 8");
+            size_t minPages = calculateMinPages(maxSize);
+            throw std::invalid_argument("maxSize exceeds the allowed limit is (pages * 4096) / 8 you need atleast " + std::to_string(minPages) + " pages");
         }
 
         maxSize = std::max(maxSize, (size_t)64);
@@ -149,7 +150,9 @@ public:
             maxSize |= maxSize >> 4;
             maxSize |= maxSize >> 8;
             maxSize |= maxSize >> 16;
-            maxSize |= maxSize >> 32;
+            #if SIZE_MAX > 0xFFFFFFFFULL
+                maxSize |= maxSize >> 32;
+            #endif
             maxSize++;
         }
 
@@ -202,6 +205,11 @@ public:
         if(size == INVALID) return INVALID;
         uint8_t sizeIdx = ctz(static_cast<uint32_t>(size)) - encodeSub;
         return virgin[sizeIdx];
+    }
+
+    static inline size_t calculateMinPages(size_t maxSize){
+        size_t reqPoolSize = maxSize << 3;
+        return (reqPoolSize + 4095) >> 12;
     }
 
     template<typename T>
