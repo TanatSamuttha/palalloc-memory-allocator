@@ -1,12 +1,27 @@
 # palalloc
 ## pool-adaptive-linking memory-allocator
 
-Palalloc is thread local pool based memory allocator that design to allocate, free and reset in O(1) time complexity with free-list trade off by lower data size flexibility than std::malloc.
+**Palalloc** is a thread-local, pool-based memory allocator designed for deterministic **O(1)** allocation, deallocation and reset operations. It trade of the size flexibility `std::malloc` for ultra-fast performance using an adaptive free-list mechanism.
 
-## How it work?
-- Use LIFO(Last-In First-Out) allocate and free.
-- If out of block for allocating size class, palalloc will combine 2 last blocks of smaller size class recuirsively otherwise it will split the last block of larger size class into a half recursively. If still out of available spaces or the size is bigger than declared maxSize, pallaoc call std::malloc for fallback.
-- Reset method is only reset meta-data but hard-reset method is also free the memory pool.
+## Feature
+- Allocate and free in order of LIFO(Last-In First-out) to reallocate last free block of memory for CPU cache improve.
+- At initial, palalloc will only flag heads, tails and virgins addresses not already connect each address to next address
+- Allocating have 1 fast path and 4 slow paths.
+   - The fast path will imediately return the head of freelist.
+   - 1st slow path will load new chunk of pool by connect 16 virgin blocks and return the first block.
+   - 2nd slow path will combine last 2 blocks of smaller size class recursively.
+   - 3rd slow path will split last block of bigger size class into half recursively then give the front block to be new head of smaller size class and return the back block to user.
+   - 4th slow path will call std::malloc when palalloc is out of pool space or the allocating size is bigger than declared max size.
+- Hard reset method will free the pool and reset heads, tails and virgins addresses.
+- If allocate unsupported type, palalloc will allocate the block of smallest size class that bigger than allocating size.
+
+## Benchmarks
+This is results of speed comparing between palalloc and std::malloc. Execute the same .exe file 10 times
+| Benchmarks | Description | Average times | Max times | Min times |
+|:----------:|:------------|:-------------:|:---------:|:---------:|
+| Game loop  |             | 18.07x        | 19.48x    | 16.75x    |
+| Chaotic    |             | 5.57x         | 8.02x     | 3.54x     |
+| Split      |             | 2.74x         | 2.97x     | 2.52x     |
 
 ## How to use
 1. Add palalloc.h into your project folder and include it.
