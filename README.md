@@ -18,7 +18,7 @@
 ## Benchmarks
 This is results of speed comparing between palalloc and std::malloc. Execute the same .exe file 10 times
 | Benchmarks | Description | Average times | Max times | Min times |
-|:----------:|:------------|:-------------:|:---------:|:---------:|
+|:-----------|:------------|:--------------|:----------|:----------|
 | Game loop  |             | 18.07x        | 19.48x    | 16.75x    |
 | Chaotic    |             | 5.57x         | 8.02x     | 3.54x     |
 | Split      |             | 2.74x         | 2.97x     | 2.52x     |
@@ -26,3 +26,8 @@ This is results of speed comparing between palalloc and std::malloc. Execute the
 ## How to use
 1. Add palalloc.h into your project folder and include it.
 2. Create object in class of Palalloc and assign pages and maxsize into parameters (1 page size is 4096 bytes. Maxsize can't lower than 8 bytes and can't higher than (pages * 4096) / 2. And maxsize can only divisible by 2 but you don't have to worry because the program will automatically find the smallest size that still fit for your maxsize and divisible by 2).
+
+## API
+| Method   | Parameters                          | Description |
+|:---------|:----------------------------------- |:------------|
+| Palalloc | `void (size_t pages, size_t maxSize)` |
