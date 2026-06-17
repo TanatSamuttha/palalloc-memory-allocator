@@ -55,6 +55,7 @@ double benchmarkPalalloc() {
     allocator.init(); // Initialize before measuring time to avoid overhead
 
     auto start_time = std::chrono::high_resolution_clock::now();
+    int total_failures = 0;
 
     for (int frame = 0; frame < NUM_FRAMES; ++frame) {
         // 1. Simulate memory allocation during the frame
@@ -62,10 +63,14 @@ double benchmarkPalalloc() {
             palalloc_ptrs[i] = allocator.alloc<Transform>();
             
             // Write data similar to the malloc test
-            palalloc_ptrs[i]->x = 1.0f;
-            palalloc_ptrs[i]->y = 2.0f;
-            palalloc_ptrs[i]->z = 3.0f;
-            palalloc_ptrs[i]->id = i;
+            if (palalloc_ptrs[i] != nullptr) {
+                palalloc_ptrs[i]->x = 1.0f;
+                palalloc_ptrs[i]->y = 2.0f;
+                palalloc_ptrs[i]->z = 3.0f;
+                palalloc_ptrs[i]->id = i;
+            } else {
+                total_failures++;
+            }
         }
 
         // 2. Simulate freeing memory at the end of the frame
@@ -75,6 +80,10 @@ double benchmarkPalalloc() {
 
     auto end_time = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double, std::milli> elapsed = end_time - start_time;
+    
+    if (total_failures > 0) {
+        std::cout << "[Warning] Palalloc encountered " << total_failures << " allocation failures!\n";
+    }
     
     return elapsed.count();
 }

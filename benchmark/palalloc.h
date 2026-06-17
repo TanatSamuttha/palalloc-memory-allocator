@@ -179,7 +179,7 @@ public:
         firstTime = false;
     }
 
-    inline void* getpool(){
+    inline void* getPool(){
         return static_cast<void*>(pool);
     }
 
@@ -242,15 +242,19 @@ public:
         if(splitIdx != INVALID){
             return reinterpret_cast<T*>(pool + splitIdx);
         }
-
-        return static_cast<T*>(std::malloc(size));
+        
+        return nullptr;
     }
 
     template<typename T>
     inline T* galloc(){
         size_t size = fitSize(sizeof(T));
         if(sizeof(T) <= sizeClass[3]){
-            return alloc<T>();
+            T* ptr = alloc<T>();
+            if(ptr != nullptr){
+                return ptr;
+            }
+            return static_cast<T*>(std::malloc(size));
         }
         return static_cast<T*>(std::malloc(sizeof(T)));
     }
@@ -292,7 +296,7 @@ public:
         tail[3] = poolSize - 1; // 4095 at 1 page
     }
 
-    inline void hard_reset(){
+    inline void hardReset(){
         std::free(pool);
         pool = nullptr;
         firstTime = true;

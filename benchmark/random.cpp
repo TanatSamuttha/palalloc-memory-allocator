@@ -113,10 +113,10 @@ double benchmarkPalalloc() {
     for (const auto& op : operations) {
         if (op.type == OpType::ALLOC) {
             switch (op.size_class) {
-                case 0: active_ptrs[op.slot_index] = allocator.alloc<Obj256>(); break;
-                case 1: active_ptrs[op.slot_index] = allocator.alloc<Obj512>(); break;
-                case 2: active_ptrs[op.slot_index] = allocator.alloc<Obj1024>(); break;
-                case 3: active_ptrs[op.slot_index] = allocator.alloc<Obj2048>(); break;
+                case 0: active_ptrs[op.slot_index] = allocator.galloc<Obj256>(); break;
+                case 1: active_ptrs[op.slot_index] = allocator.galloc<Obj512>(); break;
+                case 2: active_ptrs[op.slot_index] = allocator.galloc<Obj1024>(); break;
+                case 3: active_ptrs[op.slot_index] = allocator.galloc<Obj2048>(); break;
             }
             
             // Force memory commit
