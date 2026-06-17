@@ -2,7 +2,7 @@
 
 **Palalloc** is a thread-local, pool-based memory allocator designed for deterministic **O(1)** allocation, deallocation and reset operations. It trade of the size flexibility `std::malloc` for ultra-fast performance using an adaptive free-list mechanism.
 
-## Feature
+## Implementation Details
 - Allocates and frees blocks in Last-In, First-Out (LIFO) order to maximize CPU cache locality by reusing the most recently vacated memory addresses.
 - Initialy, Palalloc only indexes pool state (heads, tails, and virgin addresses) without pre-linking every block, reducing startup overhead.
 - Allocating has 1 fast path and 4 slow paths.
