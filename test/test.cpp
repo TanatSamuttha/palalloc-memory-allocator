@@ -44,7 +44,7 @@ void runCorrectionTest() {
     // We use a large number to ensure we hit the pool limit
     bool got_null = false;
     int max_possible_allocs = 500000; 
-    
+
     for (int i = 0; i < 500000; ++i) {
         Transform* p = allocator.alloc<Transform>();
         
@@ -54,7 +54,6 @@ void runCorrectionTest() {
             break;
         }
 
-        // เช็คสถานะภายในทุกๆ 50,000 ครั้ง
         if (i % 50000 == 0) {
             std::cout << "Iteration " << i 
                       << " | Head: " << allocator.getHead<Transform>() 
