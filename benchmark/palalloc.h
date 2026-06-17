@@ -44,7 +44,7 @@ private:
         uint8_t sizeIdx = ctz(static_cast<uint32_t>(size)) - encodeSub;
         size_t requirBytes = static_cast<size_t>(size) * blocks;
 
-        if(tail[sizeIdx] >= requirBytes - 1 && virgin[sizeIdx] <= tail[sizeIdx] - requirBytes + 1){
+        if(virgin[sizeIdx] + requirBytes <= tail[sizeIdx] + 1){
             size_t allocIdx = tail[sizeIdx] - requirBytes + 1;
             tail[sizeIdx] -= requirBytes;
 
@@ -60,7 +60,7 @@ private:
         uint8_t sizeIdx = ctz(static_cast<uint32_t>(size)) - encodeSub;
         size_t blockStart = INVALID;
 
-        if(tail[sizeIdx] >= size - 1 && virgin[sizeIdx] <= tail[sizeIdx] - size + 1){
+        if(virgin[sizeIdx] + size <= tail[sizeIdx] + 1){
             blockStart = tail[sizeIdx] - size + 1;
             tail[sizeIdx] -= size;
         }

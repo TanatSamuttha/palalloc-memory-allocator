@@ -1,5 +1,3 @@
 *.exe
-/benchmark_old/
-/test/
-test.cpp
 multithread.cpp
+temp.cpp
