@@ -16,28 +16,32 @@
 
 ## Benchmarks
 This is results of speed comparing between palalloc and std::malloc. Execute the same .exe file 10 times
-| Benchmarks | Description                                                   | Average times | Max times | Min times |
-|:-----------|:--------------------------------------------------------------|:--------------|:----------|:----------|
-| Game loop  | Simulating game loop. Allocate many times then reset the pool | 18.07x        | 19.48x    | 16.75x    |
-| Chaotic    | Allocate and deallocate chaotically                           | 5.57x         | 8.02x     | 3.54x     |
-| Split      | Stress test force palalloc to manage it's pool via split      | 2.74x         | 2.97x     | 2.52x     |
+| Benchmarks | Description                                                                          | Average times | Max times | Min times |
+|:-----------|:-------------------------------------------------------------------------------------|:--------------|:----------|:----------|
+| Reset      | Intensive allocation followed by a full pool reset.                                  | 18.07x        | 19.48x    | 16.75x    |
+| Random     | Randomized allocation and deallocation patterns.                                     | 5.57x         | 8.02x     | 3.54x     |
+| Stress     | Stress test force palalloc to manage its pool via split and `std::malloc` fallback.  | 2.74x         | 2.97x     | 2.52x     |
+
+Performance Analysis Note: In the 'Stress' scenario, the performance gain is lower compared to other tests. This is because the workload intentionally exceeds pool capacity, forcing the allocator to delegate tasks to `std::malloc`. This result demonstrates that Palalloc remains faster than standard allocation even when burdened with fallback overhead.
 
 ## How to use
-1. Add palalloc.h into your project folder and include it.
-2. Create object in class of Palalloc and assign pages and maxsize into parameters (1 page size is 4096 bytes. Maxsize can't lower than 8 bytes and can't higher than (pages * 4096) / 2. And maxsize can only divisible by 2 but you don't have to worry because the program will automatically find the smallest size that still fit for your maxsize and divisible by 2).
+Add palalloc.h into your project folder and include it in your source code.
+```cpp
+#include "palalloc.h"
+```
 
-## API
+## API Reference
 | Method            | Parameters                            | Description                                                                                      |
 |:------------------|:------------------------------------- |:-------------------------------------------------------------------------------------------------|
-| Palalloc          | `void (size_t pages, size_t maxSize)` | Constructor. Assign pages and max size.                                                          |
-| init              | `void ()`                             | Reserve pool memory and reset boundary index.                                                    |
-| alloc             | `type* <type>()`                      | Allocates memory in the pool. Will return `nullptr` if allocating size is bigger than max size or pool overflow.                                                                                                                                                 |
-| galloc            | `type* <type>()`                      | Stand for general-allocates. Allocates memory in the pool. Will fallback to `std::malloc` if allocating size is bigger than max size or pool overflow.                                                                                                      |
+| Palalloc          | `void (size_t pages, size_t maxSize)` | Constructor. Assigns total pages and maximum allocate size limit.                                |
+| init              | `void ()`                             | Reserve pool memory and resets indexes pool state.                                               |
+| alloc             | `type* <type>()`                      | Allocates memory in the pool. Will return `nullptr` if the requested size is larger than the max size or if the pool overflows.                                                                                                                                 |
+| galloc            | `type* <type>()`                      | Stand for general-allocate. Allocates memory in the pool. Fallback to `std::malloc` if the requested size is larger than the max size or if the pool overflows.                                                                                                     |
 | free              | `void <type>(uint8_t* ptr)`           | Deallocates memory.                                                                              |
 | reset             | `void ()`                             | Resets the pool state. **Warning:** All previously allocated pointers will become dangling. You must manually nullify them. This method does **not** free or track memory allocated via `std::malloc`.                                                              |
 | hardReset         | `void ()`                             | Resets the pool state and free the pool. **Warning:** All previously allocated pointers will become dangling. You must manually nullify them. This method does **not** free or track memory allocated via `std::malloc`.                                           |
 | calculateMinPages | `size_t (size_t maxSize)`             | A utility method to calculate the minimum number of pages required for a given `maxSize`.        |
 | getPool           | `void* ()`                            | Beginning address of the pool.                                                                   |
-| getHead           | `size_t <type>()`                     | Distance from pool begin to the head of free list.                                               |
-| getTail           | `size_t <type>()`                     | Distance from pool begin to the tail of free list.                                               |
-| getVirgin         | `size_t <type>()`                     | Distance from pool begin to the virgin of free list.                                             |
+| getHead           | `size_t <type>()`                     | Distance from pool begin to the head of the free list.                                           |
+| getTail           | `size_t <type>()`                     | Distance from pool begin to the tail of the free list.                                           |
+| getVirgin         | `size_t <type>()`                     | Distance from pool begin to the virgin of the virgin address.                                    |
