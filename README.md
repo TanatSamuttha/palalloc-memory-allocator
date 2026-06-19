@@ -16,11 +16,16 @@
 
 ## Benchmarks
 This is results of speed comparing between palalloc and std::malloc. Execute the same .exe file 10 times
-| Benchmarks | Description                                                                          | Average times | Max times | Min times |
-|:-----------|:-------------------------------------------------------------------------------------|:--------------|:----------|:----------|
-| Reset      | Intensive allocation followed by a full pool reset.                                  | 18.07x        | 19.48x    | 16.75x    |
-| Random     | Randomized allocation and deallocation patterns.                                     | 5.57x         | 8.02x     | 3.54x     |
-| Stress     | Stress test force palalloc to manage its pool via split and `std::malloc` fallback.  | 2.74x         | 2.97x     | 2.52x     |
+
+| Benchmarks   | Description                                                                          | Average times | Max times | Min times |
+|:-------------|:-------------------------------------------------------------------------------------|:--------------|:----------|:----------|
+| Reset        | Intensive allocation followed by a full pool reset.                                  | 10.24x        | 12.13x    | 8.43x     |
+| Random       | Randomized allocation and deallocation patterns.                                     | 3.66x         | 4.07x     | 3.18x     |
+| Random Tiny  | Randomized allocation and deallocation patterns in small objects.                    | 5.40x         | 6.26x     | 3.89x     |
+| FIFO         | Use first in first out strategy to test in CPU cache miss scenario                   | 5.42x         | 6.39x     | 4.47x     |
+| Stress       | Stress test force palalloc to manage its pool via split and `std::malloc` fallback.  | 2.64x         | 3.20x     | 2.26x     |
+| Swiss Cheese | Allocate many objects then random deallocate to make fragmentation then migrate **palalloc** pool to fix fragmentation       |
+| 2.41x         | 2.63x     | 1.94x     |
 
 Performance Analysis Note: In the 'Stress' scenario, the performance gain is lower compared to other tests. This is because the workload intentionally exceeds pool capacity, forcing the allocator to delegate tasks to `std::malloc`. This result demonstrates that Palalloc remains faster than standard allocation even when burdened with fallback overhead.
 
