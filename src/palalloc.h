@@ -36,7 +36,7 @@ private:
     #else
         #define PAL_FORCE_INLINE inline __attribute__((always_inline))
     #endif
-    size_t fitSize(size_t size){
+    size_t fitSize(size_t size) noexcept {
         return (size > sizeClass[3]) ? INVALID : sizeClass[(size > sizeClass[0]) + (size > sizeClass[1]) + (size > sizeClass[2])];
     }
 
@@ -184,7 +184,7 @@ public:
     }
 
     template<typename T>
-    inline size_t getHead(){
+    inline size_t getHead() noexcept {
         size_t size = fitSize(sizeof(T));
         if(size == INVALID) return INVALID;
         uint8_t sizeIdx = ctz(static_cast<uint32_t>(size)) - encodeSub;
@@ -192,7 +192,7 @@ public:
     }
 
     template<typename T>
-    inline size_t getTail(){
+    inline size_t getTail() noexcept {
         size_t size = fitSize(sizeof(T));
         if(size == INVALID) return INVALID;
         uint8_t sizeIdx = ctz(static_cast<uint32_t>(size)) - encodeSub;
@@ -200,14 +200,14 @@ public:
     }
 
     template<typename T>
-    inline size_t getVirgin(){
+    inline size_t getVirgin() noexcept {
         size_t size = fitSize(sizeof(T));
         if(size == INVALID) return INVALID;
         uint8_t sizeIdx = ctz(static_cast<uint32_t>(size)) - encodeSub;
         return virgin[sizeIdx];
     }
 
-    static inline size_t calculateMinPages(size_t maxSize){
+    static inline size_t calculateMinPages(size_t maxSize) noexcept {
         size_t reqPoolSize = maxSize << 3;
         return (reqPoolSize + 4095) >> 12;
     }
@@ -282,7 +282,7 @@ public:
         head[sizeIdx] = static_cast<size_t>(ptrByte - pool);
     }
 
-    inline void reset(){
+    inline void reset() noexcept {
         head[0] = head[1] = head[2] = head[3] = INVALID;
 
         virgin[0] = 0; 

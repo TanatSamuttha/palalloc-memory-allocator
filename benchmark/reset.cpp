@@ -13,12 +13,19 @@ struct Transform {
 const int NUM_FRAMES = 1000;
 const int ALLOCS_PER_FRAME = 50000;
 
-// Arrays to store pointers, preventing the compiler from optimizing the allocations away
+// Arrays to store pointers
 Transform* malloc_ptrs[ALLOCS_PER_FRAME];
 Transform* palalloc_ptrs[ALLOCS_PER_FRAME];
 
+// ---------------------------------------------------------
+// [Fix for -O3] Global volatile sink to prevent dead-code elimination
+// ---------------------------------------------------------
+volatile uint32_t global_sink = 0;
+
 double benchmarkMalloc() {
     auto start_time = std::chrono::high_resolution_clock::now();
+    
+    uint32_t local_sum = 0; // Accumulator to trick the compiler
 
     for (int frame = 0; frame < NUM_FRAMES; ++frame) {
         // 1. Simulate memory allocation during the frame
@@ -30,6 +37,9 @@ double benchmarkMalloc() {
             malloc_ptrs[i]->y = 2.0f;
             malloc_ptrs[i]->z = 3.0f;
             malloc_ptrs[i]->id = i;
+            
+            // [Fix] Read from the allocated memory to ensure the compiler cannot skip the write
+            local_sum += malloc_ptrs[i]->id; 
         }
 
         // 2. Simulate freeing memory at the end of the frame
@@ -37,6 +47,9 @@ double benchmarkMalloc() {
             std::free(malloc_ptrs[i]);
         }
     }
+
+    // [Fix] Dump the accumulated result into the volatile variable
+    global_sink = local_sum;
 
     auto end_time = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double, std::milli> elapsed = end_time - start_time;
@@ -55,7 +68,9 @@ double benchmarkPalalloc() {
     allocator.init(); // Initialize before measuring time to avoid overhead
 
     auto start_time = std::chrono::high_resolution_clock::now();
+    
     int total_failures = 0;
+    uint32_t local_sum = 0; // Accumulator to trick the compiler
 
     for (int frame = 0; frame < NUM_FRAMES; ++frame) {
         // 1. Simulate memory allocation during the frame
@@ -68,6 +83,9 @@ double benchmarkPalalloc() {
                 palalloc_ptrs[i]->y = 2.0f;
                 palalloc_ptrs[i]->z = 3.0f;
                 palalloc_ptrs[i]->id = i;
+                
+                // [Fix] Read from the allocated memory
+                local_sum += palalloc_ptrs[i]->id;
             } else {
                 total_failures++;
             }
@@ -77,6 +95,9 @@ double benchmarkPalalloc() {
         // This highlights Palalloc's strength: O(1) Reset clears everything in a single operation
         allocator.reset();
     }
+
+    // [Fix] Dump the accumulated result into the volatile variable
+    global_sink = local_sum;
 
     auto end_time = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double, std::milli> elapsed = end_time - start_time;
