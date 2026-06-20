@@ -214,9 +214,13 @@ public:
 
     template<typename T>
     inline T* alloc(){
+        return static_cast<T*>(alloc(sizeof(T)));
+    }
+
+    inline void* alloc(size_t bytes){
         if(firstTime) init();
 
-        size_t size = fitSize(sizeof(T));
+        size_t size = fitSize(bytes);
         if(size == INVALID) return nullptr;
 
         uint8_t sizeIdx = ctz(static_cast<uint32_t>(size)) - encodeSub;
@@ -225,22 +229,22 @@ public:
             void* ptr = pool + head[sizeIdx];
             uint8_t* next = *reinterpret_cast<uint8_t**>(ptr);
             head[sizeIdx] = (next == nullptr) ? INVALID : static_cast<size_t>(next - pool);
-            return reinterpret_cast<T*>(ptr);
+            return static_cast<void*>(ptr);
         }
 
         void* newPtr = loadChunk(sizeIdx, size);
         if(newPtr != nullptr){
-            return reinterpret_cast<T*>(newPtr);
+            return static_cast<void*>(newPtr);
         }
 
         size_t combineIdx = (size > sizeClass[0]) ? combine(size >> 1, 2) : INVALID;
         if(combineIdx != INVALID){
-            return reinterpret_cast<T*>(pool + combineIdx);
+            return static_cast<void*>(pool + combineIdx);
         }
 
         size_t splitIdx = (size < sizeClass[3]) ? split(size << 1) : INVALID;
         if(splitIdx != INVALID){
-            return reinterpret_cast<T*>(pool + splitIdx);
+            return static_cast<void*>(pool + splitIdx);
         }
         
         return nullptr;
@@ -248,21 +252,29 @@ public:
 
     template<typename T>
     inline T* galloc(){
-        size_t size = fitSize(sizeof(T));
-        if(sizeof(T) <= sizeClass[3]){
-            T* ptr = alloc<T>();
+        return static_cast<T*>(galloc(sizeof(T)));
+    }
+
+    inline void* galloc(size_t bytes){
+        size_t size = fitSize(bytes);
+        if(size != INVALID){
+            void* ptr = alloc(size);
             if(ptr != nullptr){
-                return ptr;
+                return static_cast<void*>(ptr);
             }
-            return static_cast<T*>(std::malloc(size));
+            return static_cast<void*>(std::malloc(size));
         }
-        return static_cast<T*>(std::malloc(sizeof(T)));
+        return static_cast<void*>(std::malloc(bytes));
     }
 
     template<typename T>
     inline void free(T* ptr){
-        size_t size = fitSize(sizeof(T));
-        if (size > sizeClass[3]){
+        free(static_cast<void*>(ptr), sizeof(T));
+    }
+
+    inline void free(void* ptr, size_t size){
+        size = fitSize(size);
+        if (size == INVALID){
             std::free(ptr);
             return;
         }
