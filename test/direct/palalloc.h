@@ -3,9 +3,10 @@
 
 #include <cstdint>
 #include <cstdlib>
+#include <cstddef>
 #include <stdexcept>
 
-class Palalloc{
+class Palalloc {
 private:
     uint8_t* pool = nullptr;
 
@@ -44,31 +45,31 @@ private:
         uint8_t sizeIdx = ctz(static_cast<uint32_t>(size)) - encodeSub;
         size_t requirBytes = static_cast<size_t>(size) * blocks;
 
-        if(virgin[sizeIdx] + requirBytes <= tail[sizeIdx] + 1){
+        if (virgin[sizeIdx] + requirBytes <= tail[sizeIdx] + 1) {
             size_t allocIdx = tail[sizeIdx] - requirBytes + 1;
             tail[sizeIdx] -= requirBytes;
 
             return allocIdx;
         }
-        else{
+        else {
             if(size <= sizeClass[0]) return INVALID;
             else return combine((size >> 1), (blocks << 1));
         }
     }
 
-    inline size_t split(size_t size){
+    inline size_t split(size_t size) {
         uint8_t sizeIdx = ctz(static_cast<uint32_t>(size)) - encodeSub;
         size_t blockStart = INVALID;
 
-        if(virgin[sizeIdx] + size <= tail[sizeIdx] + 1){
+        if (virgin[sizeIdx] + size <= tail[sizeIdx] + 1) {
             blockStart = tail[sizeIdx] - size + 1;
             tail[sizeIdx] -= size;
         }
-        else if(size < sizeClass[3]){
+        else if (size < sizeClass[3]) {
             blockStart = split(size << 1); 
         }
 
-        if(blockStart != INVALID){
+        if (blockStart != INVALID) {
             size_t subSize = size >> 1;
             size_t frontBlock = blockStart;
             size_t backBlock = blockStart + subSize;
@@ -94,7 +95,7 @@ private:
         return static_cast<int>(idx);
     }
     #else
-    inline int8_t ctz(uint32_t x){
+    inline int8_t ctz(uint32_t x) {
         return __builtin_ctz(x);
     }
     #endif
@@ -104,8 +105,8 @@ private:
     #else
     __attribute__((noinline))
     #endif
-    void* loadChunk(uint8_t sizeIdx, size_t size){
-        if(virgin[sizeIdx] + size > tail[sizeIdx] + 1) return nullptr;
+    void* loadChunk(uint8_t sizeIdx, size_t size) {
+        if (virgin[sizeIdx] + size > tail[sizeIdx] + 1) return nullptr;
 
         uint8_t chunkSize = 16;
         size_t startVirgin = virgin[sizeIdx];
@@ -114,7 +115,7 @@ private:
         uint8_t* ptr = pool + current;
         size_t allocatedCount = 1;
 
-        for(int i = 0; i < chunkSize - 1; ++i){
+        for (int i = 0; i < chunkSize - 1; ++i) {
             if(current + size * 2 > tail[sizeIdx] + 1) break;
             *reinterpret_cast<uint8_t**>(ptr) = ptr + size;
             ptr += size;
@@ -133,10 +134,10 @@ private:
     }
 
 public:
-    inline Palalloc(size_t pages, size_t maxSize){
+    inline Palalloc(size_t pages, size_t maxSize) {
         poolSize = pages * 4096;
 
-        if(maxSize > (poolSize >> 3)){
+        if (maxSize > (poolSize >> 3)) {
             size_t minPages = calculateMinPages(maxSize);
             throw std::invalid_argument("maxSize exceeds the allowed limit is (pages * 4096) / 8 you need atleast " + std::to_string(minPages) + ((minPages > 1)? " pages": "page"));
         }
@@ -164,7 +165,7 @@ public:
         encodeSub = ctz(static_cast<uint32_t>(sizeClass[0]));
     }
 
-    inline ~Palalloc(){
+    inline ~Palalloc() {
         std::free(pool);
     }
 
@@ -172,8 +173,8 @@ public:
 
     inline Palalloc& operator=(const Palalloc&) = delete;
 
-    inline void init(){
-        if(!firstTime) return;
+    inline void init() {
+        if (!firstTime) return;
         pool = static_cast<uint8_t*>(std::malloc(poolSize));
         reset();
         firstTime = false;
@@ -186,7 +187,7 @@ public:
     template<typename T>
     inline size_t getHead() noexcept {
         size_t size = fitSize(sizeof(T));
-        if(size == INVALID) return INVALID;
+        if (size == INVALID) return INVALID;
         uint8_t sizeIdx = ctz(static_cast<uint32_t>(size)) - encodeSub;
         return head[sizeIdx];
     }
@@ -194,7 +195,7 @@ public:
     template<typename T>
     inline size_t getTail() noexcept {
         size_t size = fitSize(sizeof(T));
-        if(size == INVALID) return INVALID;
+        if (size == INVALID) return INVALID;
         uint8_t sizeIdx = ctz(static_cast<uint32_t>(size)) - encodeSub;
         return tail[sizeIdx];
     }
@@ -202,7 +203,7 @@ public:
     template<typename T>
     inline size_t getVirgin() noexcept {
         size_t size = fitSize(sizeof(T));
-        if(size == INVALID) return INVALID;
+        if (size == INVALID) return INVALID;
         uint8_t sizeIdx = ctz(static_cast<uint32_t>(size)) - encodeSub;
         return virgin[sizeIdx];
     }
@@ -213,19 +214,19 @@ public:
     }
 
     template<typename T>
-    inline T* alloc(){
+    inline T* alloc() {
         return static_cast<T*>(alloc(sizeof(T)));
     }
 
-    inline void* alloc(size_t bytes){
-        if(firstTime) init();
+    inline void* alloc(size_t bytes) {
+        if (firstTime) init();
 
         size_t size = fitSize(bytes);
-        if(size == INVALID) return nullptr;
+        if (size == INVALID) return nullptr;
 
         uint8_t sizeIdx = ctz(static_cast<uint32_t>(size)) - encodeSub;
 
-        if(head[sizeIdx] != INVALID){
+        if (head[sizeIdx] != INVALID) {
             void* ptr = pool + head[sizeIdx];
             uint8_t* next = *reinterpret_cast<uint8_t**>(ptr);
             head[sizeIdx] = (next == nullptr) ? INVALID : static_cast<size_t>(next - pool);
@@ -233,17 +234,17 @@ public:
         }
 
         void* newPtr = loadChunk(sizeIdx, size);
-        if(newPtr != nullptr){
+        if (newPtr != nullptr) {
             return static_cast<void*>(newPtr);
         }
 
         size_t combineIdx = (size > sizeClass[0]) ? combine(size >> 1, 2) : INVALID;
-        if(combineIdx != INVALID){
+        if (combineIdx != INVALID) {
             return static_cast<void*>(pool + combineIdx);
         }
 
         size_t splitIdx = (size < sizeClass[3]) ? split(size << 1) : INVALID;
-        if(splitIdx != INVALID){
+        if (splitIdx != INVALID) {
             return static_cast<void*>(pool + splitIdx);
         }
         
@@ -251,15 +252,15 @@ public:
     }
 
     template<typename T>
-    inline T* galloc(){
+    inline T* galloc() {
         return static_cast<T*>(galloc(sizeof(T)));
     }
 
-    inline void* galloc(size_t bytes){
+    inline void* galloc(size_t bytes) {
         size_t size = fitSize(bytes);
-        if(size != INVALID){
+        if (size != INVALID) {
             void* ptr = alloc(size);
-            if(ptr != nullptr){
+            if (ptr != nullptr) {
                 return static_cast<void*>(ptr);
             }
             return static_cast<void*>(std::malloc(size));
@@ -268,20 +269,20 @@ public:
     }
 
     template<typename T>
-    inline void free(T* ptr){
+    inline void free(T* ptr) {
         free(static_cast<void*>(ptr), sizeof(T));
     }
 
-    inline void free(void* ptr, size_t size){
+    inline void free(void* ptr, size_t size) {
         size = fitSize(size);
-        if (size == INVALID){
+        if (size == INVALID) {
             std::free(ptr);
             return;
         }
         
         uint8_t* ptrByte = reinterpret_cast<uint8_t*>(ptr);
 
-        if(ptrByte < pool || ptrByte >= pool + poolSize){
+        if (ptrByte < pool || ptrByte >= pool + poolSize) {
             std::free(ptr);
             return;
         }
@@ -308,7 +309,7 @@ public:
         tail[3] = poolSize - 1; // 4095 at 1 page
     }
 
-    inline void hardReset(){
+    inline void hardReset() {
         std::free(pool);
         pool = nullptr;
         firstTime = true;
