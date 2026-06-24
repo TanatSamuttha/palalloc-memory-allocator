@@ -24,8 +24,7 @@ This is results of speed comparing between palalloc and std::malloc. Execute the
 | Random Tiny  | Randomized allocation and deallocation patterns in small objects.                    | 5.40x         | 6.26x     | 3.89x     |
 | FIFO         | Use first in first out strategy to test in CPU cache miss scenario                   | 5.42x         | 6.39x     | 4.47x     |
 | Stress       | Stress test force palalloc to manage its pool via split and `std::malloc` fallback.  | 2.64x         | 3.20x     | 2.26x     |
-| Swiss Cheese | Allocate many objects then random deallocate to make fragmentation then migrate **palalloc** pool to fix fragmentation       |
-| 2.41x         | 2.63x     | 1.94x     |
+| Swiss Cheese | Allocate many objects then random deallocate to make fragmentation then migrate **palalloc** pool to fix fragmentation       | 2.41x         | 2.63x     | 1.94x     |
 
 Performance Analysis Note: In the 'Stress' scenario, the performance gain is lower compared to other tests. This is because the workload intentionally exceeds pool capacity, forcing the allocator to delegate tasks to `std::malloc`. This result demonstrates that Palalloc remains faster than standard allocation even when burdened with fallback overhead.
 
