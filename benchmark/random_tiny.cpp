@@ -5,6 +5,20 @@
 #include <iomanip>
 #include "palalloc.h"
 
+// Anti-optimization barrier to prevent -O3 from eliminating allocations and loops
+#if defined(__GNUC__) || defined(__clang__)
+inline void prevent_optimization(void* ptr) {
+    // Forces the compiler to assume the pointer escapes and its memory is modified
+    asm volatile("" : : "g"(ptr) : "memory");
+}
+#else
+// Fallback sink for compilers like MSVC
+volatile void* optimization_sink = nullptr;
+inline void prevent_optimization(void* ptr) {
+    optimization_sink = ptr;
+}
+#endif
+
 // Define tiny object structures specifically to target malloc's tcache/fastbins
 struct Obj16  { uint8_t data[16];  }; // Class 0
 struct Obj32  { uint8_t data[32];  }; // Class 1
@@ -81,6 +95,8 @@ double benchmarkMalloc() {
             // Force memory commit (prevent lazy allocation optimization by OS)
             if (active_ptrs[op.slot_index]) {
                 static_cast<uint8_t*>(active_ptrs[op.slot_index])[0] = 0xFF;
+                // Prevent compiler from eliminating this write and allocation lifecycle
+                prevent_optimization(active_ptrs[op.slot_index]);
             }
         } 
         else { // FREE
@@ -126,6 +142,8 @@ double benchmarkPalalloc() {
             // Force memory commit
             if(active_ptrs[op.slot_index]) {
                 static_cast<uint8_t*>(active_ptrs[op.slot_index])[0] = 0xFF;
+                // Prevent compiler from eliminating this write and allocation lifecycle
+                prevent_optimization(active_ptrs[op.slot_index]);
             }
         } 
         else { // FREE

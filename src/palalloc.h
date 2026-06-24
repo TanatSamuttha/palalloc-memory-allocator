@@ -24,10 +24,13 @@ private:
 
         encoded by count trail zero and decrease by 3
     */
-    size_t head[4];
-    size_t virgin[4];
-    size_t tail[4];
-    size_t sizeClass[4];
+    struct State {
+        size_t head;
+        size_t virgin;
+        size_t tail;
+    } state[4];
+
+    size_t sizeClasses[4];
 
     bool firstTime = true;
 
@@ -38,21 +41,21 @@ private:
         #define PAL_FORCE_INLINE inline __attribute__((always_inline))
     #endif
     size_t fitSize(size_t size) noexcept {
-        return (size > sizeClass[3]) ? INVALID : sizeClass[(size > sizeClass[0]) + (size > sizeClass[1]) + (size > sizeClass[2])];
+        return (size > sizeClasses[3]) ? INVALID : sizeClasses[(size > sizeClasses[0]) + (size > sizeClasses[1]) + (size > sizeClasses[2])];
     }
 
     inline size_t combine(size_t size, size_t blocks){
         uint8_t sizeIdx = ctz(static_cast<uint32_t>(size)) - encodeSub;
         size_t requirBytes = static_cast<size_t>(size) * blocks;
 
-        if (virgin[sizeIdx] + requirBytes <= tail[sizeIdx] + 1) {
-            size_t allocIdx = tail[sizeIdx] - requirBytes + 1;
-            tail[sizeIdx] -= requirBytes;
+        if (state[sizeIdx].virgin + requirBytes <= state[sizeIdx].tail + 1) {
+            size_t allocIdx = state[sizeIdx].tail - requirBytes + 1;
+            state[sizeIdx].tail -= requirBytes;
 
             return allocIdx;
         }
         else {
-            if(size <= sizeClass[0]) return INVALID;
+            if(size <= sizeClasses[0]) return INVALID;
             else return combine((size >> 1), (blocks << 1));
         }
     }
@@ -61,11 +64,11 @@ private:
         uint8_t sizeIdx = ctz(static_cast<uint32_t>(size)) - encodeSub;
         size_t blockStart = INVALID;
 
-        if (virgin[sizeIdx] + size <= tail[sizeIdx] + 1) {
-            blockStart = tail[sizeIdx] - size + 1;
-            tail[sizeIdx] -= size;
+        if (state[sizeIdx].virgin + size <= state[sizeIdx].tail + 1) {
+            blockStart = state[sizeIdx].tail - size + 1;
+            state[sizeIdx].tail -= size;
         }
-        else if (size < sizeClass[3]) {
+        else if (size < sizeClasses[3]) {
             blockStart = split(size << 1); 
         }
 
@@ -75,10 +78,10 @@ private:
             size_t backBlock = blockStart + subSize;
 
             uint8_t* frontPtr = pool + frontBlock;
-            uint8_t* requesterHeadPtr = (head[sizeIdx - 1] != INVALID) ? (pool + head[sizeIdx - 1]) : nullptr;
+            uint8_t* requesterHeadPtr = (state[sizeIdx - 1].head != INVALID) ? (pool + state[sizeIdx - 1].head) : nullptr;
             
             *reinterpret_cast<uint8_t**>(frontPtr) = requesterHeadPtr;
-            head[sizeIdx - 1] = frontBlock;
+            state[sizeIdx - 1].head = frontBlock;
 
             return backBlock;
         }
@@ -106,17 +109,17 @@ private:
     __attribute__((noinline))
     #endif
     void* loadChunk(uint8_t sizeIdx, size_t size) {
-        if (virgin[sizeIdx] + size > tail[sizeIdx] + 1) return nullptr;
+        if (state[sizeIdx].virgin + size > state[sizeIdx].tail + 1) return nullptr;
 
         uint8_t chunkSize = 16;
-        size_t startVirgin = virgin[sizeIdx];
+        size_t startVirgin = state[sizeIdx].virgin;
         size_t current = startVirgin;
 
         uint8_t* ptr = pool + current;
         size_t allocatedCount = 1;
 
         for (int i = 0; i < chunkSize - 1; ++i) {
-            if(current + size * 2 > tail[sizeIdx] + 1) break;
+            if(current + size * 2 > state[sizeIdx].tail + 1) break;
             *reinterpret_cast<uint8_t**>(ptr) = ptr + size;
             ptr += size;
             current += size;
@@ -124,11 +127,11 @@ private:
         }
         *reinterpret_cast<uint8_t**>(ptr) = nullptr;
 
-        virgin[sizeIdx] = current + size;
+        state[sizeIdx].virgin = current + size;
 
         void* result = pool + startVirgin;
         
-        head[sizeIdx] = (allocatedCount > 1) ? (startVirgin + size) : INVALID;
+        state[sizeIdx].head = (allocatedCount > 1) ? (startVirgin + size) : INVALID;
 
         return result;
     }
@@ -157,12 +160,12 @@ public:
             maxSize++;
         }
 
-        sizeClass[0] = (maxSize >> 3);
-        sizeClass[1] = (maxSize >> 2);
-        sizeClass[2] = (maxSize >> 1);
-        sizeClass[3] = maxSize;
+        sizeClasses[0] = (maxSize >> 3);
+        sizeClasses[1] = (maxSize >> 2);
+        sizeClasses[2] = (maxSize >> 1);
+        sizeClasses[3] = maxSize;
 
-        encodeSub = ctz(static_cast<uint32_t>(sizeClass[0]));
+        encodeSub = ctz(static_cast<uint32_t>(sizeClasses[0]));
     }
 
     inline ~Palalloc() {
@@ -189,7 +192,7 @@ public:
         size_t size = fitSize(sizeof(T));
         if (size == INVALID) return INVALID;
         uint8_t sizeIdx = ctz(static_cast<uint32_t>(size)) - encodeSub;
-        return head[sizeIdx];
+        return state[sizeIdx].head;
     }
 
     template<typename T>
@@ -197,7 +200,7 @@ public:
         size_t size = fitSize(sizeof(T));
         if (size == INVALID) return INVALID;
         uint8_t sizeIdx = ctz(static_cast<uint32_t>(size)) - encodeSub;
-        return tail[sizeIdx];
+        return state[sizeIdx].tail;
     }
 
     template<typename T>
@@ -205,7 +208,7 @@ public:
         size_t size = fitSize(sizeof(T));
         if (size == INVALID) return INVALID;
         uint8_t sizeIdx = ctz(static_cast<uint32_t>(size)) - encodeSub;
-        return virgin[sizeIdx];
+        return state[sizeIdx].virgin;
     }
 
     static inline size_t calculateMinPages(size_t maxSize) noexcept {
@@ -226,10 +229,10 @@ public:
 
         uint8_t sizeIdx = ctz(static_cast<uint32_t>(size)) - encodeSub;
 
-        if (head[sizeIdx] != INVALID) {
-            void* ptr = pool + head[sizeIdx];
+        if (state[sizeIdx].head != INVALID) {
+            void* ptr = pool + state[sizeIdx].head;
             uint8_t* next = *reinterpret_cast<uint8_t**>(ptr);
-            head[sizeIdx] = (next == nullptr) ? INVALID : static_cast<size_t>(next - pool);
+            state[sizeIdx].head = (next == nullptr) ? INVALID : static_cast<size_t>(next - pool);
             return static_cast<void*>(ptr);
         }
 
@@ -238,12 +241,12 @@ public:
             return static_cast<void*>(newPtr);
         }
 
-        size_t combineIdx = (size > sizeClass[0]) ? combine(size >> 1, 2) : INVALID;
+        size_t combineIdx = (size > sizeClasses[0]) ? combine(size >> 1, 2) : INVALID;
         if (combineIdx != INVALID) {
             return static_cast<void*>(pool + combineIdx);
         }
 
-        size_t splitIdx = (size < sizeClass[3]) ? split(size << 1) : INVALID;
+        size_t splitIdx = (size < sizeClasses[3]) ? split(size << 1) : INVALID;
         if (splitIdx != INVALID) {
             return static_cast<void*>(pool + splitIdx);
         }
@@ -289,24 +292,24 @@ public:
 
         uint8_t sizeIdx = ctz(static_cast<uint32_t>(size)) - encodeSub;
 
-        uint8_t* headPtr = (head[sizeIdx] != INVALID)? pool + head[sizeIdx] : nullptr;
+        uint8_t* headPtr = (state[sizeIdx].head != INVALID)? pool + state[sizeIdx].head : nullptr;
 
         *reinterpret_cast<uint8_t**>(ptrByte) = headPtr;
-        head[sizeIdx] = static_cast<size_t>(ptrByte - pool);
+        state[sizeIdx].head = static_cast<size_t>(ptrByte - pool);
     }
 
     inline void reset() noexcept {
-        head[0] = head[1] = head[2] = head[3] = INVALID;
+        state[0].head = state[1].head = state[2].head = state[3].head = INVALID;
 
-        virgin[0] = 0; 
-        virgin[1] = (poolSize >> 1); // 2048 at 1 page
-        virgin[2] = (poolSize >> 1) + (poolSize >> 2); // 3072 at 1 page
-        virgin[3] = (poolSize >> 1) + (poolSize >> 2) + (poolSize >> 3); // 3584 at 1 page
+        state[0].virgin = 0; 
+        state[1].virgin = (poolSize >> 1); // 2048 at 1 page
+        state[2].virgin = (poolSize >> 1) + (poolSize >> 2); // 3072 at 1 page
+        state[3].virgin = (poolSize >> 1) + (poolSize >> 2) + (poolSize >> 3); // 3584 at 1 page
 
-        tail[0] = (poolSize >> 1) - 1; // 2047 at 1 page
-        tail[1] = (poolSize >> 1) + (poolSize >> 2) - 1; // 3071 at 1 page
-        tail[2] = (poolSize >> 1) + (poolSize >> 2) + (poolSize >> 3) - 1; // 3583 at 1 page
-        tail[3] = poolSize - 1; // 4095 at 1 page
+        state[0].tail = (poolSize >> 1) - 1; // 2047 at 1 page
+        state[1].tail = (poolSize >> 1) + (poolSize >> 2) - 1; // 3071 at 1 page
+        state[2].tail = (poolSize >> 1) + (poolSize >> 2) + (poolSize >> 3) - 1; // 3583 at 1 page
+        state[3].tail = poolSize - 1; // 4095 at 1 page
     }
 
     inline void hardReset() {
