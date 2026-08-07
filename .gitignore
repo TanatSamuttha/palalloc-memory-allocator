@@ -1,3 +1,5 @@
 *.exe
 multithread.cpp
 temp.cpp
+result.txt
+command.txt
