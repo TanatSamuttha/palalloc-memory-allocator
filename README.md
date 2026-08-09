@@ -15,18 +15,27 @@
 - If allocate unsupported type, palalloc will allocate the block of smallest size class that bigger than allocating size.
 
 ## Benchmarks
-This is results of speed comparing between palalloc and std::malloc. Execute the same .exe file 10 times
-
-| Benchmarks   | Description                                                                          | Average times | Max times | Min times |
-|:-------------|:-------------------------------------------------------------------------------------|:--------------|:----------|:----------|
-| Reset        | Intensive allocation followed by a full pool reset.                                  | 10.24x        | 12.13x    | 8.43x     |
-| Random       | Randomized allocation and deallocation patterns (256 - 2048 bytes).                  | 4.15x         | 7.08x     | 2.93x     |
-| Random Tiny  | Randomized allocation and deallocation patterns in small objects (16 - 128 bytes).   | 4.66x         | 7.32x     | 3.02x     |
-| FIFO         | Use first in first out strategy to test in CPU cache miss scenario                   | 5.08x         | 7.32x     | 3.74x     |
-| Stress       | Stress test force palalloc to manage its pool via split and `std::malloc` fallback.  | 2.64x         | 3.20x     | 2.26x     |
-| Swiss Cheese | Allocate many objects then random deallocate to make fragmentation then migrate **palalloc** pool to fix fragmentation       | 2.41x         | 2.63x     | 1.94x     |
-
-Performance Analysis Note: In the 'Stress' scenario, the performance gain is lower compared to other tests. This is because the workload intentionally exceeds pool capacity, forcing the allocator to delegate tasks to `std::malloc`. This result demonstrates that Palalloc remains faster than standard allocation even when burdened with fallback overhead.
+This is results of speed comparing between palalloc and std::malloc. Compile and execute 30 times
+Compiler : MinGW-64
+Architecture : x86_64
+Optimization : O3
+C++ version : 17
+OS : Windows11
+Poolsize : 24 MiB
+### Usable Memories
+| size class (bytes) | slots | MiB   |
+| :------------------|:------|:------|
+| 256                | 48000 | 12.29 |
+| 512                | 12000 | 6.14  |
+| 1024               | 3000  | 3.07  |
+| 2048               | 1500  | 3.07  |
+### Peak Usage Memories
+| size class (bytes) | slots | MiB    |
+| :------------------|:------|:-------|
+| 256                | 6277  | 16.06  |
+| 512                | 6401  | 32.77  |
+| 1024               | 6297  | 64.48  |
+| 2048               | 6439  | 131.87 |
 
 ## How to use
 Add palalloc.h into your project folder and include it in your source code.
