@@ -15,13 +15,18 @@
 - If allocate unsupported type, palalloc will allocate the block of smallest size class that bigger than allocating size.
 
 ## Benchmarks
-This is results of speed comparing between palalloc and std::malloc. Compile and execute 30 times
-Compiler : MinGW-64
-Architecture : x86_64
-Optimization : O3
-C++ version : 17
-OS : Windows11
-Poolsize : 24 MiB
+These benchmark compare the speed performance of palalloc against `std::malloc` by compile and execute 30 times. <br><br>
+Compiler : MinGW-64 <br>
+Architecture : x86_64 <br>
+Optimization : O3 <br>
+C++ version : 17 <br>
+Architecture : native (x86_64) <br>
+OS : Windows11 <br>
+Execution command :
+```shell
+g++ benchmark.cpp -o benchmark -O3 -std=c++17 -march=native -DNDEBUG -flto 
+```
+Poolsize : 24 MiB <br>
 ### Usable Memories
 | size class (bytes) | slots | MiB   |
 | :------------------|:------|:------|
@@ -30,12 +35,20 @@ Poolsize : 24 MiB
 | 1024               | 3000  | 3.07  |
 | 2048               | 1500  | 3.07  |
 ### Peak Usage Memories
-| size class (bytes) | slots | MiB    |
-| :------------------|:------|:-------|
-| 256                | 6277  | 16.06  |
-| 512                | 6401  | 32.77  |
-| 1024               | 6297  | 64.48  |
-| 2048               | 6439  | 131.87 |
+| size class (bytes) | slots | MiB   |
+| :------------------|:------|:------|
+| 256                | 6277  | 1.61  |
+| 512                | 6401  | 3.28  |
+| 1024               | 6297  | 6.45  |
+| 2048               | 6439  | 13.19 |
+### Performance
+Average time and Speed up compare with `std::malloc`
+| palalloc (ms) | std::malloc (ms) | speed up (times) |
+| :------------ | :--------------- | :--------------- |
+| 26.73         | 92.40            | 3.46x            |
+
+Speed up is calculated as: <br>
+$Speed up = AveragePalallocTime / AverageMallocTime$
 
 ## How to use
 Add palalloc.h into your project folder and include it in your source code.
