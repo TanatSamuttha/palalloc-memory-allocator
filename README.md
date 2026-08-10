@@ -21,7 +21,7 @@ Architecture : x86_64 <br>
 Optimization : O3 <br>
 C++ version : 17 <br>
 Architecture : native (x86_64) <br>
-OS : Windows11 <br>
+OS : Windows11 <br><br>
 Execution command :
 ```shell
 g++ benchmark.cpp -o benchmark -O3 -std=c++17 -march=native -DNDEBUG -flto 
