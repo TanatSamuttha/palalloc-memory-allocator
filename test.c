@@ -1,6 +1,5 @@
 #include <stdio.h>
 #include <stdbool.h>
-#include <memory.h>
 #include "palalloc.h"
 
 void test1 (Palalloc* pool)
