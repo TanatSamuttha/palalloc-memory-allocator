@@ -6,11 +6,20 @@
 
 struct Palalloc
 {
+    uint8_t **pools;
     uint8_t **heads;
     uint32_t *sizeClasses;
     uint32_t mSize;
     uint32_t mCap;
+    bool initialized;
 };
+
+Palalloc pal_create ()
+{
+    Palalloc pool;
+    pool.initialized = false;
+    return pool;
+}
 
 uint32_t pal_clz (uint32_t x)
 {
@@ -42,19 +51,23 @@ void pal_ensureCap (Palalloc* poolObject)
         return;
         
     poolObject->mCap = pal_max(poolObject->mSize, poolObject->mCap * 2);
-        
-    uint8_t **headsBuffer = (uint8_t**)malloc(poolObject->mCap * sizeof(uint8_t*));
-    uint32_t *sizeClassesBuffer = (uint32_t*)malloc(poolObject->mCap * sizeof(uint32_t));
+    
+    uint8_t** poolsBuffer = (uint8_t**)malloc(poolObject->mCap * sizeof(uint8_t*));
+    uint8_t** headsBuffer = (uint8_t**)malloc(poolObject->mCap * sizeof(uint8_t*));
+    uint32_t* sizeClassesBuffer = (uint32_t*)malloc(poolObject->mCap * sizeof(uint32_t));
     
     for (int i = 0; i < poolObject->mSize - 1; ++i)
     {
+        poolsBuffer[i] = poolObject->pools[i];
         headsBuffer[i] = poolObject->heads[i];
         sizeClassesBuffer[i] = poolObject->sizeClasses[i];
     }
     
+    free(poolObject->pools);
     free(poolObject->heads);
     free(poolObject->sizeClasses);
 
+    poolObject->pools = poolsBuffer;
     poolObject->heads = headsBuffer;
     poolObject->sizeClasses = sizeClassesBuffer;
 }
@@ -62,24 +75,44 @@ void pal_ensureCap (Palalloc* poolObject)
 void pal_newPool (Palalloc* poolObject, uint8_t **resPtr, uint32_t size, uint32_t idx)
 {
     uint32_t poolSize = pal_max(4096, size * 16);
-    *resPtr = (uint8_t*)malloc(poolSize);
-    poolObject->heads[idx] = (uint8_t*)(*resPtr + size);
+    poolObject->pools[idx] = (uint8_t*)malloc(poolSize);
+    *resPtr = (uint8_t*)poolObject->pools[idx];
+    poolObject->heads[idx] = (uint8_t*)(poolObject->pools[idx] + size);
     poolObject->sizeClasses[idx] = size;
-
+    
     for (int i = 0; i < poolSize - size; i += size)
     {
         *(uint8_t**)(poolObject->heads[idx] + i) = (uint8_t*)(poolObject->heads[idx] + i + size);
     }
 
-    *(uint8_t**)(*resPtr + poolSize - size) = nullptr;
+    *(uint8_t**)(poolObject->pools[idx] + poolSize - size) = nullptr;
 }
 
 void pal_init (Palalloc* poolObject)
 {
     poolObject->mCap = 1;
     poolObject->mSize = 0;
+    poolObject->pools = (uint8_t**)malloc(sizeof(uint8_t*));
     poolObject->heads = (uint8_t**)malloc(sizeof(uint8_t*));
     poolObject->sizeClasses = (uint32_t*)malloc(sizeof(uint32_t));
+    poolObject->initialized = true;
+}
+
+void pal_destroy (Palalloc* poolObject)
+{
+    if (!poolObject->initialized) return;
+
+    for (int i = 0; i < poolObject->mSize; ++i)
+    {
+        free(poolObject->pools[i]);
+    }
+
+    free(poolObject->sizeClasses);
+    free(poolObject->heads);
+
+    poolObject->mCap = 0;
+    poolObject->mSize = 0;
+    poolObject->initialized = false;
 }
 
 void* pal_alloc (Palalloc* poolObject, uint32_t size)
@@ -100,14 +133,9 @@ void* pal_alloc (Palalloc* poolObject, uint32_t size)
         if (size == poolObject->sizeClasses[idx])
         {
             if (poolObject->heads[idx] != nullptr)
-            {
+            { 
                 resPtr = poolObject->heads[idx];
                 poolObject->heads[idx] = *(uint8_t**)poolObject->heads[idx];
-
-                if (poolObject->heads[idx] != nullptr)
-                {
-                    poolObject->heads[idx] = nullptr;
-                }
             }
             else
             {
@@ -132,7 +160,7 @@ void* pal_alloc (Palalloc* poolObject, uint32_t size)
     {
         ++poolObject->mSize;
         pal_ensureCap(poolObject);
-
+        
         pal_newPool(poolObject, &resPtr, size, idx);
     }
 
