@@ -9,7 +9,7 @@ void test1 ()
     std::cout << "Test1 Linking: ";
     pal_destroy(&pool);
     pal_init(&pool);
-    void* ptr = pal_alloc(&pool, 7);
+    void* ptr = pal_alloc(&pool, 8);
 
     void* past = pool.heads[0];
     while (true)
@@ -39,7 +39,7 @@ void test2 ()
     std::vector<void*> ptrs;
     for (int i = 0; i < 512; ++i)
     {
-        void* ptr = pal_alloc(&pool, 7);
+        void* ptr = pal_alloc(&pool, 8);
         if (!ptrs.empty() && (uint8_t*)ptr - (uint8_t*)*(ptrs.end() - 1) != 8)
         {
             std::cout << "Fail distance between pointers, distance: " << (uint8_t*)ptr - (uint8_t*)*(ptrs.end() - 1) << '\n';
@@ -47,7 +47,7 @@ void test2 ()
         }
         ptrs.push_back(ptr);
     }
-    void* ptr = pal_alloc(&pool, 7);
+    void* ptr = pal_alloc(&pool, 8);
     void* headPtr = (void*)((uint8_t*)ptr + 8);
     void* nextPtr = *(void**)(headPtr);
     if ((uint8_t*)nextPtr - (uint8_t*)headPtr == 8)

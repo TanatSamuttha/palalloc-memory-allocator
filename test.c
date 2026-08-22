@@ -8,7 +8,7 @@ void test1 (Palalloc* pool)
     printf("Test1 Linking: ");
     pal_destroy(pool);
     pal_init(pool);
-    void* ptr = pal_alloc(pool, 7);
+    void* ptr = pal_alloc(pool, 8);
 
     void* past = pool->heads[0];
     while (true)
@@ -39,7 +39,7 @@ void test2 (Palalloc* pool)
     int idx = 0;
     for (int i = 0; i < 512; ++i)
     {
-        void* ptr = pal_alloc(pool, 7);
+        void* ptr = pal_alloc(pool, 8);
         if (idx && (uint8_t*)ptr - (uint8_t*)ptrs[idx - 1] != 8)
         {
             printf("Fail distance between pointers, distance: %d", (uint8_t*)ptr - (uint8_t*)ptrs[idx - 1]);
@@ -47,7 +47,7 @@ void test2 (Palalloc* pool)
         }
         ptrs[idx++] = ptr;
     }
-    void* ptr = pal_alloc(pool, 7);
+    void* ptr = pal_alloc(pool, 8);
     void* headPtr = (void*)((uint8_t*)ptr + 8);
     void* nextPtr = *(void**)(headPtr);
     if ((uint8_t*)nextPtr - (uint8_t*)headPtr == 8)

@@ -42,6 +42,7 @@ uint32_t pal_max (uint32_t a, uint32_t b)
 
 uint32_t pal_nextPow2 (uint32_t x)
 {
+    if ((x & (x - 1)) == 0) return x;
     return 1 << (32 - pal_clz(x));
 }
 
