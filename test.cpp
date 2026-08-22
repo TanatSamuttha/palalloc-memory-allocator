@@ -33,7 +33,6 @@ void test1 ()
 void test2 ()
 {
     std::cout << "Test2 Pool overflows: ";
-    bool fail = false;
     pal_destroy(&pool);
     pal_init(&pool);
     std::vector<void*> ptrs;
@@ -58,10 +57,51 @@ void test2 ()
     pal_destroy(&pool);
 }
 
+void test3 ()
+{
+    std::cout << "Test3 Free: ";
+    pal_destroy(&pool);
+    pal_init(&pool);
+
+    void* ptr1 = pal_alloc(&pool, 8);
+    pal_free(&pool, ptr1, 8);
+    void* ptr2 = pal_alloc(&pool, 8);
+    if (ptr1 != ptr2)
+    {
+        std::cout << "Fail can't reuse free address in LIFO order\n";
+        return;
+    }
+
+    for (int i = 0; i < 511; ++i)
+    {
+        void* ptr = pal_alloc(&pool, 8);
+    }
+
+    void* ptr3 = pal_alloc(&pool, 8);
+    void* ptr4 = pal_alloc(&pool, 8);
+    pal_free(&pool, ptr4, 8);
+    pal_free(&pool, ptr3, 8);
+    void* ptr5 = pal_alloc(&pool, 8);
+    void* ptr6 = pal_alloc(&pool, 8);
+    if (ptr3 != ptr5)
+    {
+        std::cout << "Fail can't reuse free address at pool edge (ptr3 != ptr5)\n";
+    }
+    if (ptr4 != ptr6)
+    {
+        std::cout << "Fail can't reuse free address at pool edge (ptr4 != ptr6)\n";
+    }
+
+    std::cout << "Pass\n";
+
+    pal_destroy(&pool);
+}
+
 int main ()
 {
     test1();
     test2();
+    test3();
 
     return 0;
 }

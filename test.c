@@ -8,6 +8,7 @@ void test1 (Palalloc* pool)
     printf("Test1 Linking: ");
     pal_destroy(pool);
     pal_init(pool);
+
     void* ptr = pal_alloc(pool, 8);
 
     void* past = pool->heads[0];
@@ -32,9 +33,9 @@ void test1 (Palalloc* pool)
 void test2 (Palalloc* pool)
 {
     printf("Test2 Pool overflows: ");
-    bool fail = false;
     pal_destroy(pool);
     pal_init(pool);
+
     void* ptrs[600];
     int idx = 0;
     for (int i = 0; i < 512; ++i)
@@ -47,13 +48,54 @@ void test2 (Palalloc* pool)
         }
         ptrs[idx++] = ptr;
     }
+
     void* ptr = pal_alloc(pool, 8);
     void* headPtr = (void*)((uint8_t*)ptr + 8);
     void* nextPtr = *(void**)(headPtr);
-    if ((uint8_t*)nextPtr - (uint8_t*)headPtr == 8)
-        printf("Pass\n");
-    else
+    if ((uint8_t*)nextPtr - (uint8_t*)headPtr != 8)
         printf("Fail new pool linking\n");
+
+    printf("Pass\n");
+
+    pal_destroy(pool);
+}
+
+void test3 (Palalloc* pool)
+{
+    printf("Test3 Free: ");
+    pal_destroy(pool);
+    pal_init(pool);
+
+    void* ptr1 = pal_alloc(pool, 8);
+    pal_free(pool, ptr1, 8);
+    void* ptr2 = pal_alloc(pool, 8);
+    if (ptr1 != ptr2)
+    {
+        printf("Fail can't reuse free address in LIFO order\n");
+        return;
+    }
+
+    for (int i = 0; i < 511; ++i)
+    {
+        void* ptr = pal_alloc(pool, 8);
+    }
+
+    void* ptr3 = pal_alloc(pool, 8);
+    void* ptr4 = pal_alloc(pool, 8);
+    pal_free(pool, ptr4, 8);
+    pal_free(pool, ptr3, 8);
+    void* ptr5 = pal_alloc(pool, 8);
+    void* ptr6 = pal_alloc(pool, 8);
+    if (ptr3 != ptr5)
+    {
+        printf("Fail can't reuse free address at pool edge (ptr3 != ptr5)\n");
+    }
+    if (ptr4 != ptr6)
+    {
+        printf("Fail can't reuse free address at pool edge (ptr4 != ptr6)\n");
+    }
+
+    printf("Pass\n");
 
     pal_destroy(pool);
 }
@@ -64,6 +106,7 @@ int main ()
 
     test1(&pool);
     test2(&pool);
+    test3(&pool);
 
     return 0;
 }
