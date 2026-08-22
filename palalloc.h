@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-struct Palalloc
+typedef struct Palalloc
 {
     uint8_t **pools;
     uint8_t **heads;
@@ -12,7 +12,7 @@ struct Palalloc
     uint32_t mSize;
     uint32_t mCap;
     bool initialized;
-};
+} Palalloc;
 
 Palalloc pal_create ()
 {
@@ -85,7 +85,7 @@ void pal_newPool (Palalloc* poolObject, uint8_t **resPtr, uint32_t size, uint32_
         *(uint8_t**)(poolObject->heads[idx] + i) = (uint8_t*)(poolObject->heads[idx] + i + size);
     }
 
-    *(uint8_t**)(poolObject->pools[idx] + poolSize - size) = nullptr;
+    *(uint8_t**)(poolObject->pools[idx] + poolSize - size) = NULL;
 }
 
 void pal_init (Palalloc* poolObject)
@@ -126,13 +126,13 @@ void* pal_alloc (Palalloc* poolObject, uint32_t size)
             break;
     }
 
-    uint8_t *resPtr = nullptr;
+    uint8_t *resPtr = NULL;
 
     if (idx < poolObject->mSize)
     {
         if (size == poolObject->sizeClasses[idx])
         {
-            if (poolObject->heads[idx] != nullptr)
+            if (poolObject->heads[idx] != NULL)
             { 
                 resPtr = poolObject->heads[idx];
                 poolObject->heads[idx] = *(uint8_t**)poolObject->heads[idx];
