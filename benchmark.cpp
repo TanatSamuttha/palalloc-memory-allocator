@@ -1,63 +1,172 @@
 #include <iostream>
 #include <vector>
 #include <random>
-#include <bitset>
+#include <utility>
+#include <chrono>
+
+#include "palalloc.h"
 
 struct Operation
 {
     int idx;
+    int size;
     bool code;
+};
+
+struct Data8
+{
+    uint64_t x;
+};
+
+struct Data16
+{
+    uint64_t x[2];
+};
+
+struct Data32
+{
+    uint64_t x[4];
+};
+
+struct Data64
+{
+    uint64_t x[8];
 };
 
 const int n = 1000000;
 const int maxAlive = 200000;
-std::vector<int> allocated;
+
+int peakAlive = 0;
+int allocation = 0;
+int allocateSize[4] = {0, 0, 0, 0};
+int freeTimes = 0;
+
+std::vector<std::pair<int, int>> allocated; // index, size
 std::vector<int> freeIdx;
-
 std::vector<Operation> operations;
-std::vector<void*> ptrs;
+std::vector<void*> ptrs(maxAlive);
 
-int main ()
+std::mt19937 gen(12345);
+
+void generate ()
 {
-    std::mt19937 gen(12345);
     std::uniform_real_distribution<float> floatDist(0.0f, 1.0f);
-
-    int peakAlive = 0;
-    int allocation = 0;
-    int freeTimes = 0;
 
     for (int i = 0; i < n; ++i)
     {
         float rand = floatDist(gen);
         if ((allocated.empty() || rand <= 0.6) && allocated.size() < maxAlive)
         {
-            operations.push_back(Operation{0, 0});
+            std::uniform_int_distribution intDist(0, 3);
+            int randSize = intDist(gen);
+            int size;
+            switch (randSize)
+            {
+                case 0:
+                    size = 8;
+                    break;
+                case 1:
+                    size = 16;
+                    break;
+                case 2:
+                    size = 32;
+                    break;
+                default:
+                    size = 64;
+                    break;
+            }
+            
             if (!freeIdx.empty())
             {
-                allocated.push_back(*(freeIdx.end() - 1));
+                operations.push_back(Operation{*(freeIdx.end() - 1), size, 0});
+                allocated.push_back(std::make_pair(*(freeIdx.end() - 1), size));
                 freeIdx.pop_back();
             }
             else
             {
-                allocated.push_back(allocated.size());
+                operations.push_back(Operation{(int)allocated.size(), size, 0});
+                allocated.push_back(std::make_pair(allocated.size(), size));
             }
             peakAlive = std::max(peakAlive, (int)allocated.size());
+            ++allocateSize[randSize];
             ++allocation;
         }
         else
         {
             std::uniform_int_distribution intDist(0, (int)(allocated.size() - 1));
             int idx = intDist(gen);
-            operations.push_back(Operation{allocated[idx], 1});
+            operations.push_back(Operation{allocated[idx].first, allocated[idx].second, 1});
+            freeIdx.push_back(allocated[idx].first);
             allocated[idx] = *(allocated.end() - 1);
             allocated.pop_back();
             ++freeTimes;
         }
     }
+}
 
-    std::cout << "Allocation: " << allocation << '\n';
-    std::cout << "Free:       " << freeTimes << '\n';
-    std::cout << "Peak alive: " << peakAlive << '\n';
+double mallocBenchmark ()
+{
+    auto start = std::chrono::steady_clock::now();
+
+    for (Operation op : operations)
+    {
+        if (op.code == 0)
+        {
+            ptrs[op.idx] = std::malloc(op.size);
+        }
+        else
+        {
+            std::free(ptrs[op.idx]);
+        }
+    }
+
+    auto end = std::chrono::steady_clock::now();
+
+    return std::chrono::duration<double>(end - start).count();
+}
+
+double palallocBenchmark ()
+{
+    auto start = std::chrono::steady_clock::now();
+
+    Palalloc pool = pal_create();
+    pal_init(&pool);
+
+    for (Operation op : operations)
+    {
+        if (op.code == 0)
+        {
+            ptrs[op.idx] = pal_alloc(&pool, op.size);
+        }
+        else
+        {
+            pal_free(&pool, ptrs[op.idx], op.size);
+        }
+    }
+
+    pal_destroy(&pool);
+
+    auto end = std::chrono::steady_clock::now();
+
+    return std::chrono::duration<double>(end - start).count();
+}
+
+int main ()
+{
+    generate();
+    double palallocTime = palallocBenchmark();
+    double mallocTime = mallocBenchmark();
+
+    std::cout << "Allocation:        " << allocation << " objects\n";
+    std::cout << "Free:              " << freeTimes << " objects\n";
+    std::cout << "Peak alive:        " << peakAlive << " objects\n";
+    std::cout << "Total allocate 8:  " << allocateSize[0] << " objects\n";
+    std::cout << "Total allocate 16: " << allocateSize[1] << " objects\n";
+    std::cout << "Total allocate 32: " << allocateSize[2] << " objects\n";
+    std::cout << "Total allocate 64: " << allocateSize[3] << " objects\n";
+    std::cout << "Palalloc time:     " << palallocTime << " ms\n";
+    std::cout << "Malloc time:       " << mallocTime << " ms\n";
+    std::cout << "Comparison:        " << mallocTime / palallocTime << "x\n";
 
     return 0;
 }

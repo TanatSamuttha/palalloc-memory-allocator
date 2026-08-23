@@ -131,8 +131,6 @@ void pal_destroy (Palalloc* poolObject)
 
 void* pal_alloc (Palalloc* poolObject, uint32_t size)
 {
-    size = pal_nextPow2(size);
-
     uint32_t idx = pal_findIdx(poolObject, size);
 
     uint8_t *resPtr = NULL;
@@ -178,8 +176,6 @@ void* pal_alloc (Palalloc* poolObject, uint32_t size)
 
 void pal_free (Palalloc* poolObject, void* _memory, uint32_t size)
 {
-    size = pal_nextPow2(size);
-
     uint32_t idx = pal_findIdx(poolObject, size);
 
     *(uint8_t**)_memory = poolObject->heads[idx];
