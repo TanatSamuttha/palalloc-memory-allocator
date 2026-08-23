@@ -164,8 +164,8 @@ int main ()
     std::cout << "Total allocate 16: " << allocateSize[1] << " objects\n";
     std::cout << "Total allocate 32: " << allocateSize[2] << " objects\n";
     std::cout << "Total allocate 64: " << allocateSize[3] << " objects\n";
-    std::cout << "Palalloc time:     " << palallocTime << " ms\n";
-    std::cout << "Malloc time:       " << mallocTime << " ms\n";
+    std::cout << "Palalloc time:     " << palallocTime * 1000 << " ms\n";
+    std::cout << "Malloc time:       " << mallocTime * 1000 << " ms\n";
     std::cout << "Comparison:        " << mallocTime / palallocTime << "x\n";
 
     return 0;
