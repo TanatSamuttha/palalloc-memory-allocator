@@ -6,9 +6,9 @@
 
 typedef struct Palalloc
 {
-    uint8_t **pools;
-    uint8_t **heads;
-    uint32_t *sizeClasses;
+    uint8_t** pools;
+    uint8_t** heads;
+    uint32_t* sizeClasses;
     uint32_t mSize;
     uint32_t mCap;
     bool initialized;
@@ -84,7 +84,7 @@ uint32_t pal_findIdx (Palalloc* poolObject, uint32_t idx, uint32_t size)
     return idx;
 }
 
-void pal_newPool (Palalloc* poolObject, uint8_t **resPtr, uint32_t size, uint32_t idx)
+void pal_newPool (Palalloc* poolObject, uint8_t** resPtr, uint32_t size, uint32_t idx)
 {
     uint32_t poolSize = pal_max(4096, size * 16);
     poolObject->pools[idx] = (uint8_t*)malloc(poolSize);
@@ -100,8 +100,38 @@ void pal_newPool (Palalloc* poolObject, uint8_t **resPtr, uint32_t size, uint32_
     *(uint8_t**)(poolObject->pools[idx] + poolSize - size) = NULL;
 }
 
+void pal_split (Palalloc* poolObject, uint8_t** resPtr, uint32_t idx, uint32_t size)
+{
+    *resPtr = NULL;
+    int split = 1;
+    int nextIdx = idx;
+    while (true)
+    {
+        split <<= 1;
+        nextIdx = pal_findIdx(poolObject, nextIdx, size << 1);
+
+        if (idx >= poolObject->mSize)
+            return;
+                    
+        if (poolObject->heads[idx] != NULL)
+        {
+            *resPtr = poolObject->heads[nextIdx];
+            poolObject->heads[idx] = poolObject->heads[nextIdx] + size;
+            poolObject->heads[nextIdx] = *(uint8_t**)poolObject->heads[nextIdx];
+            int sumSize = size;
+            for (int i = 1; i < split - 1; ++i, sumSize += size)
+            {
+                *(uint8_t**)(poolObject->heads[idx] + sumSize) = (uint8_t*)(poolObject->heads[idx] + sumSize + size);
+            }
+            *(uint8_t**)(poolObject->heads[idx] + sumSize) = NULL;
+            return;
+        }
+    }
+}
+
 void pal_init (Palalloc* poolObject)
 {
+    if (poolObject->initialized) return;
     poolObject->mCap = 1;
     poolObject->mSize = 0;
     poolObject->pools = (uint8_t**)malloc(sizeof(uint8_t*));
@@ -144,7 +174,9 @@ void* pal_alloc (Palalloc* poolObject, uint32_t size)
             }
             else
             {
-                pal_newPool(poolObject, &resPtr, size, idx);
+                pal_split(poolObject, &resPtr, idx, size);
+
+                if (resPtr == NULL) pal_newPool(poolObject, &resPtr, size, idx);
             }
         }
         else

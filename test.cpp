@@ -97,11 +97,28 @@ void test3 ()
     pal_destroy(&pool);
 }
 
+void test4 ()
+{
+    std::cout << "Test4 Split: ";
+    pal_destroy(&pool);
+    pal_init(&pool);
+
+    for (int i = 0; i < 512; ++i)
+    {
+        void* ptr = pal_alloc(&pool, 8);
+    }
+    void* ptr16 = pal_alloc(&pool, 16);
+    void* ptr8_1 = pal_alloc(&pool, 8);
+    void* ptr8_2 = pal_alloc(&pool, 8);
+    if ((uint8_t*)(ptr16 + 16) )
+}
+
 int main ()
 {
     test1();
     test2();
     test3();
+    test4();
 
     return 0;
 }
