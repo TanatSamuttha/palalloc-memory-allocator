@@ -13,26 +13,6 @@ struct Operation
     bool code;
 };
 
-struct Data8
-{
-    uint64_t x;
-};
-
-struct Data16
-{
-    uint64_t x[2];
-};
-
-struct Data32
-{
-    uint64_t x[4];
-};
-
-struct Data64
-{
-    uint64_t x[8];
-};
-
 const int n = 1000000;
 const int maxAlive = 200000;
 

@@ -73,10 +73,8 @@ void pal_ensureCap (Palalloc* poolObject)
     poolObject->sizeClasses = sizeClassesBuffer;
 }
 
-uint32_t pal_findIdx (Palalloc* poolObject, uint32_t size)
+uint32_t pal_findIdx (Palalloc* poolObject, uint32_t idx, uint32_t size)
 {
-    uint32_t idx;
-
     for (idx = 0; idx < poolObject->mSize; ++idx)
     {
         if (size == poolObject->sizeClasses[idx])
@@ -131,7 +129,7 @@ void pal_destroy (Palalloc* poolObject)
 
 void* pal_alloc (Palalloc* poolObject, uint32_t size)
 {
-    uint32_t idx = pal_findIdx(poolObject, size);
+    uint32_t idx = pal_findIdx(poolObject, 0, size);
 
     uint8_t *resPtr = NULL;
 
@@ -176,7 +174,7 @@ void* pal_alloc (Palalloc* poolObject, uint32_t size)
 
 void pal_free (Palalloc* poolObject, void* _memory, uint32_t size)
 {
-    uint32_t idx = pal_findIdx(poolObject, size);
+    uint32_t idx = pal_findIdx(poolObject, 0, size);
 
     *(uint8_t**)_memory = poolObject->heads[idx];
     poolObject->heads[idx] = (uint8_t*)_memory;
