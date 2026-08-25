@@ -75,7 +75,7 @@ void pal_ensureCap (Palalloc* poolObject)
 
 uint32_t pal_findIdx (Palalloc* poolObject, uint32_t idx, uint32_t size)
 {
-    for (idx = 0; idx < poolObject->mSize; ++idx)
+    for (; idx < poolObject->mSize; ++idx)
     {
         if (size == poolObject->sizeClasses[idx])
             break;
@@ -108,12 +108,12 @@ void pal_split (Palalloc* poolObject, uint8_t** resPtr, uint32_t idx, uint32_t s
     while (true)
     {
         split <<= 1;
-        nextIdx = pal_findIdx(poolObject, nextIdx, size << 1);
+        nextIdx = pal_findIdx(poolObject, ++nextIdx, size << 1);
 
-        if (idx >= poolObject->mSize)
+        if (nextIdx >= poolObject->mSize)
             return;
-                    
-        if (poolObject->heads[idx] != NULL)
+
+        if (poolObject->heads[nextIdx] != NULL)
         {
             *resPtr = poolObject->heads[nextIdx];
             poolObject->heads[idx] = poolObject->heads[nextIdx] + size;

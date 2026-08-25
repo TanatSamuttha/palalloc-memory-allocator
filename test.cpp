@@ -110,7 +110,20 @@ void test4 ()
     void* ptr16 = pal_alloc(&pool, 16);
     void* ptr8_1 = pal_alloc(&pool, 8);
     void* ptr8_2 = pal_alloc(&pool, 8);
-    if ((uint8_t*)(ptr16 + 16) )
+    if ((uint8_t*)ptr16 + 16 != (uint8_t*)(ptr8_1))
+    {
+        std::cout << "Fail can't use first part of stealed\n";
+        return;
+    }
+    if ((uint8_t*)ptr16 + 24 != (uint8_t*)(ptr8_2))
+    {
+        std::cout << "Fail can't use second part of stealed\n";
+        return;
+    }
+
+    std::cout << "Pass\n";
+
+    pal_destroy(&pool);
 }
 
 int main ()
