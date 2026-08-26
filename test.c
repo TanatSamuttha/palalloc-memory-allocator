@@ -99,6 +99,49 @@ void test3 (Palalloc* pool)
     pal_destroy(pool);
 }
 
+void test4 (Palalloc* pool)
+{
+    printf("Test4 Split: ");
+    pal_destroy(pool);
+    pal_init(pool);
+
+    for (int i = 0; i < 512; ++i)
+    {
+        void* ptr = pal_alloc(pool, 8);
+    }
+    void* ptr16 = pal_alloc(pool, 16);
+    void* ptr8_1 = pal_alloc(pool, 8);
+    void* ptr8_2 = pal_alloc(pool, 8);
+    if ((uint8_t*)ptr16 + 16 != (uint8_t*)(ptr8_1))
+    {
+        printf("Fail can't use first part of stealed\n");
+        return;
+    }
+    if ((uint8_t*)ptr16 + 24 != (uint8_t*)(ptr8_2))
+    {
+        printf("Fail can't use second part of stealed\n");
+        return;
+    }
+
+    for (int i = 0; i < 254; ++i)
+    {
+        void* ptr = pal_alloc(pool, 16);
+    }
+
+    void* ptr32 = pal_alloc(pool, 32);
+    void* ptr8 = pal_alloc(pool, 8);
+
+    if ((uint8_t*)ptr32 + 32 != (uint8_t*)ptr8)
+    {
+        printf("Fail can't steal not first next\n");
+        return;
+    }
+
+    printf("Pass\n");
+
+    pal_destroy(pool);
+}
+
 int main ()
 {
     Palalloc pool = pal_create();
@@ -106,6 +149,7 @@ int main ()
     test1(&pool);
     test2(&pool);
     test3(&pool);
+    test4(&pool);
 
     return 0;
 }
