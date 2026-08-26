@@ -162,7 +162,6 @@ void pal_destroy (Palalloc* poolObject)
 void* pal_alloc (Palalloc* poolObject, uint32_t size)
 {
     uint32_t idx = pal_findIdx(poolObject, 0, size);
-    // std::cout << "IDX=" << idx << '\n';
 
     uint8_t *resPtr = NULL;
 
