@@ -121,6 +121,20 @@ void test4 ()
         return;
     }
 
+    for (int i = 0; i < 254; ++i)
+    {
+        void* ptr = pal_alloc(&pool, 16);
+    }
+
+    void* ptr32 = pal_alloc(&pool, 32);
+    void* ptr8 = pal_alloc(&pool, 8);
+
+    if ((uint8_t*)ptr32 + 32 != (uint8_t*)ptr8)
+    {
+        std::cout << "Fail can't steal not first next\n";
+        return;
+    }
+
     std::cout << "Pass\n";
 
     pal_destroy(&pool);

@@ -105,10 +105,12 @@ void pal_split (Palalloc* poolObject, uint8_t** resPtr, uint32_t idx, uint32_t s
     *resPtr = NULL;
     int split = 1;
     int nextIdx = idx;
+    int nextSize = size;
     while (true)
     {
         split <<= 1;
-        nextIdx = pal_findIdx(poolObject, ++nextIdx, size << 1);
+        nextSize <<= 1;
+        nextIdx = pal_findIdx(poolObject, ++nextIdx, nextSize);
 
         if (nextIdx >= poolObject->mSize)
             return;
@@ -118,7 +120,7 @@ void pal_split (Palalloc* poolObject, uint8_t** resPtr, uint32_t idx, uint32_t s
             *resPtr = poolObject->heads[nextIdx];
             poolObject->heads[idx] = poolObject->heads[nextIdx] + size;
             poolObject->heads[nextIdx] = *(uint8_t**)poolObject->heads[nextIdx];
-            int sumSize = size;
+            int sumSize = 0;
             for (int i = 1; i < split - 1; ++i, sumSize += size)
             {
                 *(uint8_t**)(poolObject->heads[idx] + sumSize) = (uint8_t*)(poolObject->heads[idx] + sumSize + size);
@@ -160,6 +162,7 @@ void pal_destroy (Palalloc* poolObject)
 void* pal_alloc (Palalloc* poolObject, uint32_t size)
 {
     uint32_t idx = pal_findIdx(poolObject, 0, size);
+    // std::cout << "IDX=" << idx << '\n';
 
     uint8_t *resPtr = NULL;
 
