@@ -161,6 +161,8 @@ void pal_destroy (Palalloc* poolObject)
 
 void* pal_alloc (Palalloc* poolObject, uint32_t size)
 {
+    if (size < 8) size = 8;
+
     uint32_t idx = pal_findIdx(poolObject, 0, size);
 
     uint8_t *resPtr = NULL;
