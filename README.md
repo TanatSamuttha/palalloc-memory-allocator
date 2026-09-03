@@ -311,15 +311,56 @@ int main()
 Palalloc prioritizes **simple metadata, fast free-list operations, and reuse of recently freed memory** over the general-purpose flexibility of `std::malloc`.
 
 The core design is based on three ideas:
-
-```text
-Dynamic Size Classes
-        +
-Intrusive LIFO Free Lists
-        +
-Adaptive Block Splitting
-        =
-Palalloc
-```
+- Dynamic Size Classes
+- Intrusive LIFO Free Lists
+- Adaptive Block Splitting
 
 This makes Palalloc particularly suitable for workloads where allocation sizes are relatively predictable and where fast allocation/deallocation is more important than supporting arbitrary general-purpose allocation patterns.
+
+## Benchmark
+
+Palalloc is benchmarked against the standard `malloc` allocator using the same sequence of allocation and free operations.
+
+### Benchmark Environment
+
+| Configuration    | Value      |
+| :--------------- | :--------- |
+| **OS**           | Windows 11 |
+| **Compiler**     | MinGW-w64  |
+| **Architecture** | x86_64     |
+| **C++ Standard** | C++20      |
+| **Optimization** | `-O3`      |
+
+### Performance
+
+| Allocator    | Average Time | Relative Performance |
+| :----------- | -----------: | -------------------: |
+| **Palalloc** |    **19.07** |     **3.09× faster** |
+| `malloc`     |        59.02 |                1.00× |
+
+> **Result:** Palalloc achieves approximately **3.09× lower average execution time** than `malloc` for this workload.
+
+---
+
+### Workload
+
+The benchmark consists of **1,000,000 allocation and free operations**.
+
+| Metric            |         Count |
+| :---------------- | ------------: |
+| Total operations  | **1,000,000** |
+| Allocations       |   **599,143** |
+| Frees             |   **400,857** |
+| Peak live objects |   **198,290** |
+
+#### Allocation Distribution
+
+| Allocation Size | Number of Allocations |
+| --------------: | --------------------: |
+|         8 bytes |               149,991 |
+|        16 bytes |               149,848 |
+|        32 bytes |               149,601 |
+|        64 bytes |               149,703 |
+|       **Total** |           **599,143** |
+
+> Benchmark results are workload- and system-dependent. Actual performance may vary depending on CPU, operating system, compiler, optimization level, and system load.
