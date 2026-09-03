@@ -1,8 +1,11 @@
 testc:
-	gcc test/test.c -o test -O0 -Isource
+	gcc Test/test.c -o test -O0 -Isource
 	./test
 
 testcpp:
-	g++ test/test.cpp -o test -O0 -Isource
+	g++ Test/test.cpp -o test -O0 -Isource
 	./test
 
+buildbenchmark:
+	g++ Benchmark/benchmark.cpp -o benchmark -O3 -Isource
+	./benchmark
