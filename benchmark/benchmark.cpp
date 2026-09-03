@@ -93,6 +93,7 @@ double mallocBenchmark ()
         if (op.code == 0)
         {
             ptrs[op.idx] = std::malloc(op.size);
+            asm volatile("" : : "g"(ptrs[op.idx]) : "memory");
         }
         else
         {
@@ -117,6 +118,7 @@ double palallocBenchmark ()
         if (op.code == 0)
         {
             ptrs[op.idx] = pal_alloc(&pool, op.size);
+            asm volatile("" : : "g"(ptrs[op.idx]) : "memory");
         }
         else
         {
